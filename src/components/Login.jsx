@@ -7,15 +7,14 @@ function Login({ onLogin, setIsLoading }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState(null);
-  const [isLoading, setIsLoadingLocal] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!username || !password) {
       setError("Please enter both username and password");
+      setIsLoading({ active: false, message: '' });
       return;
     }
-    setIsLoadingLocal(true);
     setIsLoading({ active: true, message: 'Logging In' });
     try {
       const response = await fetch(API_URL, {
@@ -33,7 +32,6 @@ function Login({ onLogin, setIsLoading }) {
     } catch (err) {
       setError('Network error: ' + err.message);
     } finally {
-      setIsLoadingLocal(false);
       setIsLoading({ active: false, message: '' });
     }
   };
@@ -84,16 +82,16 @@ function Login({ onLogin, setIsLoading }) {
         />
         <motion.button
           type="submit"
-          disabled={isLoading}
-          className={`w-full p-3 rounded-lg font-medium transition text-white
-            ${isLoading 
+          disabled={setIsLoading.active}
+          className={`w-full p-3 rounded-lg font-medium liquid-hover transition 
+            ${setIsLoading.active 
               ? "bg-gray-400 cursor-not-allowed" 
-              : "bg-[var(--button-bg)] hover:bg-[var(--button-hover)] liquid-hover"
+              : "bg-[var(--button-bg)] hover:bg-[var(--button-hover)] text-white"
             }`}
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
         >
-          {isLoading ? (
+          {setIsLoading.active ? (
             <div className="flex items-center justify-center gap-2">
               <span className="loader w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
               Logging in...
