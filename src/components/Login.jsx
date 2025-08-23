@@ -43,7 +43,7 @@ function Login({ onLogin, setIsLoading }) {
 
   return (
   <motion.div
-    className="glass-card p-6 sm:p-8 rounded-lg w-fit max-w-sm mx-auto"
+    className="glass-card p-6 sm:p-8 rounded-lg w-full max-w-sm mx-auto"
     variants={formVariants}
     initial="hidden"
     animate="visible"
