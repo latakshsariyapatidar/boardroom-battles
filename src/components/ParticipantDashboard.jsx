@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { Clock } from 'lucide-react';
 import Modal from './Modal';
 
 const API_URL = import.meta.env.VITE_APPS_SCRIPT_URL;
 
 function ParticipantDashboard({ token, onLogout, setIsLoading }) {
   const [statement, setStatement] = useState(null);
+  const [timeRemaining, setTimeRemaining] = useState(null);
   const [history, setHistory] = useState(JSON.parse(localStorage.getItem('voteHistory') || '[]'));
   const [neutralUsed, setNeutralUsed] = useState(localStorage.getItem('neutralUsed') === 'true');
   const [voteCounts, setVoteCounts] = useState(JSON.parse(localStorage.getItem('voteCounts') || '{}'));
@@ -16,6 +18,8 @@ function ParticipantDashboard({ token, onLogout, setIsLoading }) {
   const [voteChoice, setVoteChoice] = useState('');
 
   useEffect(() => {
+    let timerInterval;
+    
     const fetchStatement = async () => {
       setIsLoading({ active: true, message: 'Loading Statement' });
       try {
@@ -32,6 +36,19 @@ function ParticipantDashboard({ token, onLogout, setIsLoading }) {
             const expires = new Date(created.getTime() + data.durationMinutes * 60 * 1000);
             if (expires < new Date()) {
               setStatement({ ...data, isActive: false });
+            } else {
+              // Start timer
+              timerInterval = setInterval(() => {
+                const now = new Date();
+                const remaining = expires - now;
+                if (remaining <= 0) {
+                  setTimeRemaining(null);
+                  setStatement(prev => ({ ...prev, isActive: false }));
+                  clearInterval(timerInterval);
+                } else {
+                  setTimeRemaining(remaining);
+                }
+              }, 1000);
             }
           }
         } else {
@@ -44,7 +61,20 @@ function ParticipantDashboard({ token, onLogout, setIsLoading }) {
       }
     };
     fetchStatement();
+    
+    return () => {
+      if (timerInterval) {
+        clearInterval(timerInterval);
+      }
+    };
   }, [setIsLoading]);
+
+  const formatTime = (milliseconds) => {
+    const totalSeconds = Math.floor(milliseconds / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
 
   const openVoteModal = (choice) => {
     if (!statement || !statement.isActive) {
@@ -122,7 +152,7 @@ function ParticipantDashboard({ token, onLogout, setIsLoading }) {
 
   return (
     <motion.div
-      className="participant-dashboard glass-card p-4 sm:p-8 rounded-lg w-full max-w-4xl flex flex-col sm:flex-row"
+      className="participant-dashboard p-4 sm:p-8 w-full max-w-4xl flex flex-col sm:flex-row"
       variants={containerVariants}
       initial="hidden"
       animate="visible"
@@ -146,6 +176,22 @@ function ParticipantDashboard({ token, onLogout, setIsLoading }) {
             Logout
           </motion.button>
         </div>
+        
+        {/* Timer Section */}
+        {statement && statement.isActive && timeRemaining && (
+          <motion.div
+            className="glass-card p-4 rounded-lg mb-6 flex items-center justify-center"
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1, duration: 0.5 }}
+          >
+            <Clock className="w-5 h-5 text-[var(--button-bg)] mr-2" />
+            <span className="text-lg font-semibold text-[var(--text-heading)]">
+              Time Remaining: {formatTime(timeRemaining)}
+            </span>
+          </motion.div>
+        )}
+        
         {error && (
           <motion.p
             className="text-[var(--error)] mb-4 font-medium text-center"
@@ -175,11 +221,7 @@ function ParticipantDashboard({ token, onLogout, setIsLoading }) {
             <h3 className="text-lg sm:text-xl font-semibold mb-4 text-[var(--text-heading)]">Active Statement</h3>
             <p className="mb-6 text-[var(--text-secondary)] text-base sm:text-lg">
               {statement.text} (ID: {statement.statementID})
-              {statement.isActive && statement.createdAt && statement.durationMinutes ? (
-                <span className="ml-2 text-sm text-[var(--text-secondary)]">
-                  (Expires: {new Date(new Date(statement.createdAt).getTime() + statement.durationMinutes * 60 * 1000).toLocaleString()})
-                </span>
-              ) : (
+              {!statement.isActive && (
                 <span className="ml-2 text-sm text-[var(--error)]">(Inactive)</span>
               )}
             </p>

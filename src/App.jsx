@@ -73,15 +73,17 @@ function App() {
           initial="hidden"
           animate="visible"
         >
-          <div className="glass-card p-4 sm:p-8 rounded-lg w-full max-w-md sm:max-w-lg md:max-w-2xl lg:max-w-5xl">
             {!token ? (
               <Login onLogin={handleLogin} setIsLoading={setIsLoading} />
             ) : role === 'judge' ? (
-              <JudgeDashboard token={token} onLogout={handleLogout} setIsLoading={setIsLoading} />
+              <div className="glass-card p-4 sm:p-8 rounded-lg w-full max-w-md sm:max-w-lg md:max-w-2xl lg:max-w-5xl">
+                <JudgeDashboard token={token} onLogout={handleLogout} setIsLoading={setIsLoading} />
+              </div>
             ) : (
-              <ParticipantDashboard token={token} onLogout={handleLogout} setIsLoading={setIsLoading} />
+              <div className="glass-card p-4 sm:p-8 rounded-lg w-full max-w-md sm:max-w-lg md:max-w-2xl lg:max-w-5xl">
+                <ParticipantDashboard token={token} onLogout={handleLogout} setIsLoading={setIsLoading} />
+              </div>
             )}
-          </div>
         </motion.div>
       </div>
     </RippleContainer>

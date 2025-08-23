@@ -223,7 +223,7 @@ function JudgeDashboard({ token, onLogout, setIsLoading }) {
 
   return (
     <motion.div
-      className="glass-card p-4 sm:p-8 rounded-lg w-full max-w-5xl"
+      className="p-4 sm:p-8 w-full max-w-5xl"
       variants={containerVariants}
       initial="hidden"
       animate="visible"

@@ -25,8 +25,8 @@ const LoadingScreen = ({ message }) => {
         <div className="relative mb-6">
           <motion.div
             className="w-20 h-20 mx-auto bg-[var(--button-bg)] rounded-full flex items-center justify-center relative overflow-hidden liquid-hover"
-            animate={{ scale: [1, 1.1, 1], rotate: [0, 360, 0] }}
-            transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+            animate={{ scale: [1, 1.05, 1] }}
+            transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
           >
             <span className="text-3xl text-[var(--text)]">🗳️</span>
             <motion.div
