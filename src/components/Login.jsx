@@ -12,7 +12,6 @@ function Login({ onLogin, setIsLoading }) {
     e.preventDefault();
     if (!username || !password) {
       setError("Please enter both username and password");
-      setIsLoading({ active: false, message: '' });
       return;
     }
     setIsLoading({ active: true, message: 'Logging In' });
@@ -42,12 +41,12 @@ function Login({ onLogin, setIsLoading }) {
   };
 
   return (
-  <motion.div
-    className="glass-card p-6 sm:p-8 rounded-lg w-full max-w-sm mx-auto"
-    variants={formVariants}
-    initial="hidden"
-    animate="visible"
-  >
+    <motion.div
+      className="glass-card p-6 sm:p-8 rounded-lg w-full max-w-sm mx-auto"
+      variants={formVariants}
+      initial="hidden"
+      animate="visible"
+    >
       <h2 className="text-xl sm:text-2xl font-bold mb-6 text-[var(--text-heading)] text-center">Login</h2>
       {error && (
         <motion.p
@@ -82,21 +81,11 @@ function Login({ onLogin, setIsLoading }) {
         />
         <motion.button
           type="submit"
-          disabled={setIsLoading.active}
-          className={`w-full p-3 rounded-lg font-medium liquid-hover transition 
-            ${setIsLoading.active 
-              ? "bg-gray-400 cursor-not-allowed" 
-              : "bg-[var(--button-bg)] hover:bg-[var(--button-hover)] text-white"
-            }`}
+          className="w-full p-3 rounded-lg font-medium liquid-hover transition bg-[var(--button-bg)] hover:bg-[var(--button-hover)] text-white"
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
         >
-          {setIsLoading.active ? (
-            <div className="flex items-center justify-center gap-2">
-              <span className="loader w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-              Logging in...
-            </div>
-          ) : "Login"}
+          Login
         </motion.button>
       </form>
     </motion.div>
