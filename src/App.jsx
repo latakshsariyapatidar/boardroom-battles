@@ -1,92 +1,76 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
 import Login from './components/Login';
 import JudgeDashboard from './components/JudgeDashboard';
 import ParticipantDashboard from './components/ParticipantDashboard';
 import Navbar from './components/Navbar';
-import RippleContainer from './components/RippleContainer';
 import LoadingScreen from './components/LoadingScreen';
 
 function App() {
-  const [token, setToken] = useState(localStorage.getItem('token') || '');
-  const [role, setRole] = useState(localStorage.getItem('role') || '');
-  const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
+  const getInitialSession = () => {
+    const sessionToken = sessionStorage.getItem('token') || localStorage.getItem('token') || '';
+    const sessionRole = sessionStorage.getItem('role') || localStorage.getItem('role') || '';
+    return { token: sessionToken, role: sessionRole };
+  };
+
+  const initialSession = getInitialSession();
+  const [token, setToken] = useState(initialSession.token);
+  const [role, setRole] = useState(initialSession.role);
   const [isLoading, setIsLoading] = useState({ active: true, message: 'Loading Boardroom Battles...' });
 
   useEffect(() => {
-    document.documentElement.className = theme;
-    localStorage.setItem('theme', theme);
-  }, [theme]);
-
-  useEffect(() => {
-    // Simulate initial load (e.g., checking localStorage)
+    document.documentElement.className = 'light';
     const timer = setTimeout(() => {
       setIsLoading({ active: false, message: '' });
-    }, 1500); // 1.5s delay for initial load
+    }, 300);
     return () => clearTimeout(timer);
   }, []);
 
-  const toggleTheme = () => {
-    setTheme(theme === 'dark' ? 'light' : 'dark');
-  };
-
   const handleLogin = async (newToken, newRole) => {
-    setIsLoading({ active: true, message: 'Logging In' });
+    setIsLoading({ active: true, message: 'Loading Session...' });
     try {
       setToken(newToken);
       setRole(newRole);
-      localStorage.setItem('token', newToken);
-      localStorage.setItem('role', newRole);
+      sessionStorage.setItem('token', newToken);
+      sessionStorage.setItem('role', newRole);
     } finally {
       setIsLoading({ active: false, message: '' });
     }
   };
 
   const handleLogout = () => {
-    setIsLoading({ active: true, message: 'Logging Out' });
+    setIsLoading({ active: true, message: 'Logging Out...' });
     try {
       setToken('');
       setRole('');
+      sessionStorage.removeItem('token');
+      sessionStorage.removeItem('role');
       localStorage.removeItem('token');
       localStorage.removeItem('role');
-      localStorage.removeItem('voteHistory');
-      localStorage.removeItem('neutralUsed');
-      localStorage.removeItem('voteCounts');
     } finally {
       setIsLoading({ active: false, message: '' });
     }
   };
 
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: { opacity: 1, transition: { duration: 0.6, ease: 'easeInOut' } }
-  };
-
   return (
-    <RippleContainer>
+    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans">
       {isLoading.active && <LoadingScreen message={isLoading.message} />}
-      <div className="min-h-screen pt-16">
-        <Navbar theme={theme} toggleTheme={toggleTheme} />
-        <motion.div
-          className="flex items-center justify-center p-4 sm:p-6 min-h-[calc(100vh-4rem)]"
-          variants={containerVariants}
-          initial="hidden"
-          animate="visible"
-        >
-            {!token ? (
-              <Login onLogin={handleLogin} setIsLoading={setIsLoading} />
-            ) : role === 'judge' ? (
-              <div className="glass-card p-4 sm:p-8 rounded-lg w-full max-w-md sm:max-w-lg md:max-w-2xl lg:max-w-5xl">
-                <JudgeDashboard token={token} onLogout={handleLogout} setIsLoading={setIsLoading} />
-              </div>
-            ) : (
-              <div className="glass-card p-4 sm:p-8 rounded-lg w-full max-w-md sm:max-w-lg md:max-w-2xl lg:max-w-5xl">
-                <ParticipantDashboard token={token} onLogout={handleLogout} setIsLoading={setIsLoading} />
-              </div>
-            )}
-        </motion.div>
+      <div className="min-h-screen pt-20 pb-12">
+        <Navbar />
+        <main className="flex items-center justify-center p-4 sm:p-6 min-h-[calc(100vh-5rem)]">
+          {!token ? (
+            <Login onLogin={handleLogin} setIsLoading={setIsLoading} />
+          ) : role === 'judge' ? (
+            <div className="w-full flex justify-center">
+              <JudgeDashboard token={token} onLogout={handleLogout} setIsLoading={setIsLoading} />
+            </div>
+          ) : (
+            <div className="w-full flex justify-center">
+              <ParticipantDashboard token={token} onLogout={handleLogout} setIsLoading={setIsLoading} />
+            </div>
+          )}
+        </main>
       </div>
-    </RippleContainer>
+    </div>
   );
 }
 

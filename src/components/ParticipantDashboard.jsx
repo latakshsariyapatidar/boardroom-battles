@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
 import { Clock } from 'lucide-react';
 import Modal from './Modal';
-
-const API_URL = import.meta.env.VITE_APPS_SCRIPT_URL;
+import { apiCall, subscribeLiveChanges } from '../services/api';
 
 function ParticipantDashboard({ token, onLogout, setIsLoading }) {
   const [statement, setStatement] = useState(null);
@@ -17,57 +15,41 @@ function ParticipantDashboard({ token, onLogout, setIsLoading }) {
   const [isNeutralModalOpen, setIsNeutralModalOpen] = useState(false);
   const [voteChoice, setVoteChoice] = useState('');
 
-  useEffect(() => {
-    let timerInterval;
-    
-    const fetchStatement = async () => {
-      setIsLoading({ active: true, message: 'Loading Statement' });
-      try {
-        const response = await fetch(API_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'getStatement' }),
-        });
-        const data = await response.json();
-        if (data.success) {
-          setStatement(data);
-          if (data.createdAt && data.durationMinutes) {
-            const created = new Date(data.createdAt);
-            const expires = new Date(created.getTime() + data.durationMinutes * 60 * 1000);
-            if (expires < new Date()) {
-              setStatement({ ...data, isActive: false });
-            } else {
-              // Start timer
-              timerInterval = setInterval(() => {
-                const now = new Date();
-                const remaining = expires - now;
-                if (remaining <= 0) {
-                  setTimeRemaining(null);
-                  setStatement(prev => ({ ...prev, isActive: false }));
-                  clearInterval(timerInterval);
-                } else {
-                  setTimeRemaining(remaining);
-                }
-              }, 1000);
-            }
+  const fetchStatement = async (silent = false) => {
+    if (!silent) setIsLoading({ active: true, message: 'Loading Statement' });
+    try {
+      const data = await apiCall({ action: 'getStatement' });
+      if (data.success) {
+        setStatement(data);
+        if (data.createdAt && data.durationMinutes) {
+          const created = new Date(data.createdAt);
+          const expires = new Date(created.getTime() + data.durationMinutes * 60 * 1000);
+          if (expires < new Date()) {
+            setStatement({ ...data, isActive: false });
           }
-        } else {
-          setError(data.error);
         }
-      } catch (err) {
-        setError('Network error: ' + err.message);
-      } finally {
-        setIsLoading({ active: false, message: '' });
+      } else {
+        setError(data.error);
       }
-    };
+    } catch (err) {
+      setError('Network error: ' + err.message);
+    } finally {
+      if (!silent) setIsLoading({ active: false, message: '' });
+    }
+  };
+
+  useEffect(() => {
     fetchStatement();
-    
-    return () => {
-      if (timerInterval) {
-        clearInterval(timerInterval);
-      }
-    };
   }, [setIsLoading]);
+
+  useEffect(() => {
+    const unsubscribe = subscribeLiveChanges((event) => {
+      if (event.type === 'STATEMENT_UPDATED' || event.type === 'STORAGE_UPDATED') {
+        fetchStatement(true);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
 
   const formatTime = (milliseconds) => {
     const totalSeconds = Math.floor(milliseconds / 1000);
@@ -92,14 +74,9 @@ function ParticipantDashboard({ token, onLogout, setIsLoading }) {
   };
 
   const handleVote = async () => {
-    setIsLoading({ active: true, message: `Submitting ${voteChoice.charAt(0).toUpperCase() + voteChoice.slice(1)} Vote` });
+    setIsLoading({ active: true, message: `Submitting ${voteChoice.toUpperCase()} Vote` });
     try {
-      const response = await fetch(API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'vote', token, statementID: statement.statementID, vote: voteChoice }),
-      });
-      const data = await response.json();
+      const data = await apiCall({ action: 'vote', token, statementID: statement.statementID, vote: voteChoice });
       if (data.success) {
         setSuccess('Vote submitted successfully');
         setError(null);
@@ -128,13 +105,13 @@ function ParticipantDashboard({ token, onLogout, setIsLoading }) {
       return;
     }
     if (neutralUsed) {
-      setError('You’ve already used your neutral vote!');
+      setError('You have already used your neutral vote!');
       return;
     }
     setIsNeutralModalOpen(true);
   };
 
-  const handleNeutralSubmit = () => {
+  const handleNeutralSubmit = async () => {
     setNeutralUsed(true);
     localStorage.setItem('neutralUsed', 'true');
     setSuccess('No vote submitted (neutral)');
@@ -143,177 +120,151 @@ function ParticipantDashboard({ token, onLogout, setIsLoading }) {
     setHistory(newHistory);
     localStorage.setItem('voteHistory', JSON.stringify(newHistory));
     setIsNeutralModalOpen(false);
-  };
 
-  const containerVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.6, type: 'spring', damping: 15 } }
+    try {
+      await apiCall({ action: 'vote', token, statementID: statement.statementID, vote: 'neutral' });
+    } catch (err) {
+      console.error('Failed to submit neutral vote:', err);
+    }
   };
 
   return (
-    <motion.div
-      className="participant-dashboard p-4 sm:p-8 w-full max-w-4xl flex flex-col sm:flex-row"
-      variants={containerVariants}
-      initial="hidden"
-      animate="visible"
-    >
-      <div className="w-full sm:w-2/3 sm:pr-6 mb-4 sm:mb-0">
-        <div className="flex flex-col sm:flex-row sm:justify-between items-center mb-6">
-          <motion.h2
-            className="text-xl sm:text-2xl font-bold text-[var(--text-heading)]"
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.2, duration: 0.5 }}
-          >
-            Participant Dashboard
-          </motion.h2>
-          <motion.button
-            onClick={onLogout}
-            className="bg-[var(--error)] text-white p-2 rounded-lg hover:bg-red-700 transition font-medium liquid-hover mt-2 sm:mt-0"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            Logout
-          </motion.button>
-        </div>
-        
-        {/* Timer Section */}
-        {statement && statement.isActive && timeRemaining && (
-          <motion.div
-            className="glass-card p-4 rounded-lg mb-6 flex items-center justify-center"
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1, duration: 0.5 }}
-          >
-            <Clock className="w-5 h-5 text-[var(--button-bg)] mr-2" />
-            <span className="text-lg font-semibold text-[var(--text-heading)]">
-              Time Remaining: {formatTime(timeRemaining)}
-            </span>
-          </motion.div>
-        )}
-        
-        {error && (
-          <motion.p
-            className="text-[var(--error)] mb-4 font-medium text-center"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.3 }}
-          >
-            {error}
-          </motion.p>
-        )}
-        {success && (
-          <motion.p
-            className="text-[var(--success)] mb-4 font-medium text-center"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.3 }}
-          >
-            {success}
-          </motion.p>
-        )}
-        {statement ? (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3, duration: 0.5, type: 'spring', damping: 15 }}
-          >
-            <h3 className="text-lg sm:text-xl font-semibold mb-4 text-[var(--text-heading)]">Active Statement</h3>
-            <p className="mb-6 text-[var(--text-secondary)] text-base sm:text-lg">
-              {statement.text} (ID: {statement.statementID})
-              {!statement.isActive && (
-                <span className="ml-2 text-sm text-[var(--error)]">(Inactive)</span>
-              )}
-            </p>
-            {statement.isActive ? (
-              <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
-                <motion.button
-                  onClick={() => openVoteModal('agree')}
-                  className={`flex-1 bg-[var(--success)] text-white p-3 rounded-lg hover:bg-green-700 transition font-medium liquid-hover ${
-                    (voteCounts[statement.statementID] || 0) >= 2 ? 'opacity-50 cursor-not-allowed' : ''
-                  }`}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  disabled={(voteCounts[statement.statementID] || 0) >= 2}
-                >
-                  Agree
-                </motion.button>
-                <motion.button
-                  onClick={() => openVoteModal('disagree')}
-                  className={`flex-1 bg-[var(--error)] text-white p-3 rounded-lg hover:bg-red-700 transition font-medium liquid-hover ${
-                    (voteCounts[statement.statementID] || 0) >= 2 ? 'opacity-50 cursor-not-allowed' : ''
-                  }`}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  disabled={(voteCounts[statement.statementID] || 0) >= 2}
-                >
-                  Disagree
-                </motion.button>
-                <motion.button
-                  onClick={handleNoVote}
-                  className={`flex-1 bg-gray-500 text-white p-3 rounded-lg hover:bg-gray-600 transition font-medium liquid-hover ${
-                    neutralUsed ? 'opacity-50 cursor-not-allowed' : ''
-                  }`}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  disabled={neutralUsed}
-                >
-                  No Vote (Neutral)
-                </motion.button>
+    <div className="p-4 sm:p-8 w-full max-w-5xl bg-slate-50 min-h-screen">
+      <div className="flex flex-col sm:flex-row gap-6">
+        {/* Main Section */}
+        <div className="w-full sm:w-2/3 space-y-6">
+          <div className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center pb-4 border-b-2 border-slate-200 gap-3">
+            <div className="flex items-center gap-3">
+              <h2 className="text-2xl font-extrabold text-slate-900">Participant Dashboard</h2>
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-bold bg-orange-100 text-orange-700 border border-orange-200">
+                Live Session
+              </span>
+            </div>
+            <button
+              onClick={onLogout}
+              className="bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-lg font-bold text-sm transition-colors"
+            >
+              Logout
+            </button>
+          </div>
+
+          {/* Messages */}
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg font-semibold text-sm">
+              {error}
+            </div>
+          )}
+          {success && (
+            <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg font-semibold text-sm">
+              {success}
+            </div>
+          )}
+
+          {/* Active Statement Card */}
+          {statement ? (
+            <div className="bg-white border-2 border-slate-200 p-6 rounded-xl shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-xs font-bold uppercase tracking-wider text-orange-600 bg-orange-50 px-3 py-1 rounded-md border border-orange-200">
+                  Active Motion
+                </span>
+                <span className="text-xs font-mono text-slate-500 font-bold">
+                  ID: {statement.statementID}
+                </span>
               </div>
-            ) : (
-              <p className="text-[var(--text-secondary)]">Voting is closed for this statement</p>
-            )}
-          </motion.div>
-        ) : (
-          <p className="text-[var(--text-secondary)] text-base sm:text-lg">No active statement available</p>
-        )}
+
+              <h3 className="text-xl font-bold text-slate-900 mb-6 leading-snug">
+                {statement.text}
+              </h3>
+
+              {statement.isActive ? (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-slate-100">
+                  <button
+                    onClick={() => openVoteModal('agree')}
+                    className={`py-3 px-4 rounded-lg font-bold text-sm text-white transition-colors bg-green-600 hover:bg-green-700 ${
+                      (voteCounts[statement.statementID] || 0) >= 2 ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
+                    disabled={(voteCounts[statement.statementID] || 0) >= 2}
+                  >
+                    Agree
+                  </button>
+                  <button
+                    onClick={() => openVoteModal('disagree')}
+                    className={`py-3 px-4 rounded-lg font-bold text-sm text-white transition-colors bg-red-600 hover:bg-red-700 ${
+                      (voteCounts[statement.statementID] || 0) >= 2 ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
+                    disabled={(voteCounts[statement.statementID] || 0) >= 2}
+                  >
+                    Disagree
+                  </button>
+                  <button
+                    onClick={handleNoVote}
+                    className={`py-3 px-4 rounded-lg font-bold text-sm text-slate-800 transition-colors bg-slate-200 hover:bg-slate-300 ${
+                      neutralUsed ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
+                    disabled={neutralUsed}
+                  >
+                    No Vote (Neutral)
+                  </button>
+                </div>
+              ) : (
+                <p className="text-sm font-bold text-red-600 bg-red-50 p-3 rounded-lg border border-red-200">
+                  Voting is currently closed for this statement.
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="bg-white border-2 border-slate-200 p-6 rounded-xl shadow-sm text-slate-500 font-medium">
+              No active statement available right now.
+            </div>
+          )}
+        </div>
+
+        {/* Sidebar History */}
+        <div className="w-full sm:w-1/3 bg-white border-2 border-slate-200 p-6 rounded-xl shadow-sm h-fit">
+          <h3 className="text-base font-bold text-slate-900 mb-4 pb-2 border-b border-slate-200">
+            Voting History
+          </h3>
+          {history.length > 0 ? (
+            <div className="space-y-3">
+              {history.map((entry, index) => (
+                <div key={index} className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-xs">
+                  <p className="font-bold text-slate-900">ID: {entry.statementID}</p>
+                  <p className="font-semibold text-slate-600 mt-1">
+                    Vote Cast: <span className="uppercase text-orange-600 font-extrabold">{entry.vote}</span>
+                  </p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-slate-500 text-xs font-medium">No votes recorded in this session yet.</p>
+          )}
+        </div>
       </div>
-      <div className="w-full sm:w-1/3 sm:pl-6 sm:border-l border-[var(--card-border)]">
-        <motion.h3
-          className="text-lg sm:text-xl font-semibold mb-4 text-[var(--text-heading)]"
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.3, duration: 0.5 }}
-        >
-          Voting History
-        </motion.h3>
-        {history.length > 0 ? (
-          <ul className="list-disc pl-5 text-[var(--text-secondary)] text-sm sm:text-base">
-            {history.map((entry, index) => (
-              <motion.li
-                key={index}
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.4 + index * 0.1, duration: 0.4 }}
-              >
-                Statement ID: {entry.statementID}, Vote: {entry.vote}
-              </motion.li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-[var(--text-secondary)] text-sm sm:text-base">No voting history available</p>
-        )}
-      </div>
+
       <Modal
         isOpen={isVoteModalOpen}
         onClose={() => setIsVoteModalOpen(false)}
         onSubmit={handleVote}
         title="Confirm Vote"
-        submitText="Confirm"
+        submitText="Confirm Vote"
       >
-        <p className="text-[var(--text-secondary)]">Are you sure you want to vote "{voteChoice}" for statement "{statement?.text}"?</p>
+        <p className="text-slate-700 text-sm font-medium">
+          Are you sure you want to vote <strong className="uppercase text-orange-600">{voteChoice}</strong> for statement "{statement?.text}"?
+        </p>
       </Modal>
+
       <Modal
         isOpen={isNeutralModalOpen}
         onClose={() => setIsNeutralModalOpen(false)}
         onSubmit={handleNeutralSubmit}
         title="Confirm Neutral Vote"
-        submitText="Confirm"
+        submitText="Confirm Neutral"
       >
-        <p className="text-[var(--text-secondary)]">Are you sure you want to submit a neutral vote for statement "{statement?.text}"? This can only be done once.</p>
+        <p className="text-slate-700 text-sm font-medium">
+          Are you sure you want to submit a neutral vote? This action can only be performed once per session.
+        </p>
       </Modal>
-    </motion.div>
+    </div>
   );
 }
 

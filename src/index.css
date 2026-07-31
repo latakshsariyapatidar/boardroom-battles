@@ -1,134 +1,71 @@
 @import "tailwindcss";
 
-:root {
-  /* Dark Theme */
-  --bg: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-  --card-bg: rgba(255, 255, 255, 0.05);
-  --card-border: rgba(255, 255, 255, 0.1);
-  --text: #e0e7ff;
-  --text-heading: #a5b4fc;
-  --text-secondary: #a5b4fc;
-  --button-bg: #4f46e5;
-  --button-hover: #4338ca;
-  --error: #f87171;
-  --success: #4ade80;
-  --input-bg: rgba(255, 255, 255, 0.1);
-  --input-border: rgba(255, 255, 255, 0.2);
-  --input-focus: #3b82f6;
-  --chart-bg: rgba(99, 102, 241, 0.5);
-  --chart-border: rgba(99, 102, 241, 1);
-  --placeholder: rgba(255, 255, 255, 0.5);
-  --theme-icon-stroke: #ffffff;
-  --ripple-bg: rgba(79, 70, 229, 0.3);
-}
-
-:root.light {
-  /* Light Theme */
-  --bg: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
-  --card-bg: rgba(255, 255, 255, 0.8);
-  --card-border: rgba(0, 0, 0, 0.1);
-  --text: #1f2937;
-  --text-heading: #4b5563;
-  --text-secondary: #6b7280;
-  --button-bg: #3b82f6;
-  --button-hover: #2563eb;
-  --error: #ef4444;
-  --success: #22c55e;
-  --input-bg: rgba(255, 255, 255, 0.9);
-  --input-border: rgba(0, 0, 0, 0.2);
-  --input-focus: #3b82f6;
-  --chart-bg: rgba(59, 130, 246, 0.5);
-  --chart-border: rgba(59, 130, 246, 1);
-  --placeholder: rgba(107, 114, 128, 0.7);
-  --theme-icon-stroke: #1f2937;
-  --ripple-bg: rgba(59, 130, 246, 0.3);
+:root, :root.light {
+  /* Crisp Light Theme with White & Orange Palette */
+  --bg: #f8fafc;
+  --card-bg: #ffffff;
+  --card-border: #e2e8f0;
+  --text: #0f172a;
+  --text-heading: #0f172a;
+  --text-secondary: #475569;
+  --button-bg: #ea580c;
+  --button-hover: #c2410c;
+  --error: #dc2626;
+  --success: #16a34a;
+  --input-bg: #ffffff;
+  --input-border: #cbd5e1;
+  --input-focus: #ea580c;
+  --chart-bg: #ea580c;
+  --chart-border: #c2410c;
+  --placeholder: #94a3b8;
+  --theme-icon-stroke: #0f172a;
+  --border: #e2e8f0;
 }
 
 html, body {
-  background: var(--bg);
+  background-color: var(--bg);
   color: var(--text);
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
   -webkit-overscroll-behavior: none;
   overscroll-behavior: none;
   height: 100%;
   margin: 0;
 }
 
-@keyframes liquidRipple {
-  0% { transform: scale(0); opacity: 0.6; }
-  100% { transform: scale(3); opacity: 0; }
-}
-
-@keyframes themeSlide {
-  0% { transform: translateX(0); }
-  50% { transform: translateX(10px); opacity: 0; }
-  51% { transform: translateX(-10px); opacity: 0; }
-  100% { transform: translateX(0); opacity: 1; }
-}
-
-.liquid-hover {
-  position: relative;
-  overflow: hidden;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.liquid-hover:hover {
-  transform: scale(1.05);
-  background: var(--button-hover);
-}
-
-.liquid-hover::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 20px;
-  height: 20px;
-  background: var(--ripple-bg);
-  border-radius: 50%;
-  transform: scale(0);
-  pointer-events: none;
-}
-
-.liquid-hover:active::before {
-  animation: liquidRipple 0.6s ease-out;
-}
-
-.liquid-input {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  background: var(--input-bg);
-  border: 1px solid var(--input-border);
-  color: var(--text);
-}
-
-.liquid-input:focus {
-  transform: scale(1.02);
-  box-shadow: 0 0 10px var(--input-focus);
-  border-color: var(--input-focus);
-}
-
-.liquid-input::placeholder {
-  color: var(--placeholder);
-}
-
+/* Flat, solid components without transparency or glassmorphism */
 .glass-card {
-  background: var(--card-bg);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
-  border: 1px solid var(--card-border);
-  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
-}
-
-@keyframes liquidWave {
-  0% { transform: translateY(10px); opacity: 0; }
-  100% { transform: translateY(0); opacity: 1; }
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
 }
 
 .navbar {
-  background: var(--card-bg);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
-  border-bottom: 1px solid var(--card-border);
+  background-color: #ffffff;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.liquid-input {
+  background-color: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #0f172a;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.liquid-input:focus {
+  border-color: #ea580c;
+  outline: 2px solid #ffedd5;
+}
+
+.liquid-input::placeholder {
+  color: #94a3b8;
+}
+
+.liquid-hover {
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.liquid-hover:hover {
+  background-color: #c2410c;
 }
 
 .theme-icon {

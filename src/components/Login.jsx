@@ -1,7 +1,5 @@
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
-
-const API_URL = import.meta.env.VITE_APPS_SCRIPT_URL;
+import { apiCall } from '../services/api';
 
 function Login({ onLogin, setIsLoading }) {
   const [username, setUsername] = useState('');
@@ -11,95 +9,78 @@ function Login({ onLogin, setIsLoading }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!username || !password) {
-      setError("Please enter both username and password");
-      setIsLoading({ active: false, message: '' });
+      setError('Please enter both username and password.');
       return;
     }
-    setIsLoading({ active: true, message: 'Logging In' });
+
+    setIsLoading({ active: true, message: 'Authenticating...' });
     try {
-      const response = await fetch(API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'login', username, password }),
-      });
-      const data = await response.json();
+      const data = await apiCall({ action: 'login', username, password });
       if (data.success) {
         onLogin(data.token, data.role);
         setError(null);
       } else {
-        setError(data.error);
+        setError(data.error || 'Invalid username or password.');
       }
     } catch (err) {
-      setError('Network error: ' + err.message);
+      setError('Connection error: ' + err.message);
     } finally {
       setIsLoading({ active: false, message: '' });
     }
   };
 
-  const formVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: 'easeInOut' } }
-  };
-
   return (
-    <motion.div
-      className="glass-card p-6 sm:p-8 rounded-lg w-full max-w-sm mx-auto"
-      variants={formVariants}
-      initial="hidden"
-      animate="visible"
-    >
-      <h2 className="text-xl sm:text-2xl font-bold mb-6 text-[var(--text-heading)] text-center">Login</h2>
+    <div className="bg-white border-2 border-slate-200 p-8 rounded-xl w-full max-w-sm mx-auto shadow-md">
+      <div className="text-center mb-6">
+        <h2 className="text-2xl font-extrabold text-slate-900">Sign In</h2>
+        <p className="text-xs text-slate-500 font-medium mt-1">Boardroom Battles Portal</p>
+      </div>
+
       {error && (
-        <motion.p
-          className="text-[var(--error)] mb-4 font-medium text-center"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.3 }}
-        >
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded-md mb-4 text-xs font-semibold text-center">
           {error}
-        </motion.p>
+        </div>
       )}
+
       <form onSubmit={handleSubmit} className="space-y-4">
-        <label htmlFor="username" className="sr-only">Username</label>
-        <motion.input
-          id="username"
-          type="text"
-          value={username}
-          onChange={(e) => { setUsername(e.target.value); setError(null); }}
-          placeholder="Username"
-          className="w-full p-3 liquid-input rounded-lg"
-          whileFocus={{ scale: 1.02 }}
-        />
-        <label htmlFor="password" className="sr-only">Password</label>
-        <motion.input
-          id="password"
-          type="password"
-          value={password}
-          onChange={(e) => { setPassword(e.target.value); setError(null); }}
-          placeholder="Password"
-          className="w-full p-3 liquid-input rounded-lg"
-          whileFocus={{ scale: 1.02 }}
-        />
-        <motion.button
+        <div>
+          <label htmlFor="username" className="block text-xs font-bold text-slate-700 mb-1 uppercase tracking-wider">
+            Username
+          </label>
+          <input
+            id="username"
+            type="text"
+            value={username}
+            onChange={(e) => { setUsername(e.target.value); setError(null); }}
+            placeholder="Enter your username"
+            required
+            className="w-full p-3 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:border-orange-500 focus:ring-2 focus:ring-orange-100 outline-none"
+          />
+        </div>
+
+        <div>
+          <label htmlFor="password" className="block text-xs font-bold text-slate-700 mb-1 uppercase tracking-wider">
+            Password
+          </label>
+          <input
+            id="password"
+            type="password"
+            value={password}
+            onChange={(e) => { setPassword(e.target.value); setError(null); }}
+            placeholder="Enter your password"
+            required
+            className="w-full p-3 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:border-orange-500 focus:ring-2 focus:ring-orange-100 outline-none"
+          />
+        </div>
+
+        <button
           type="submit"
-          disabled={setIsLoading.active}
-          className={`w-full p-3 rounded-lg font-medium liquid-hover transition 
-            ${setIsLoading.active 
-              ? "bg-gray-400 cursor-not-allowed" 
-              : "bg-[var(--button-bg)] hover:bg-[var(--button-hover)] text-white"
-            }`}
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
+          className="w-full py-3 px-4 rounded-lg font-bold bg-orange-600 hover:bg-orange-700 text-white text-sm transition-colors shadow-sm mt-2"
         >
-          {setIsLoading.active ? (
-            <div className="flex items-center justify-center gap-2">
-              <span className="loader w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-              Logging in...
-            </div>
-          ) : "Login"}
-        </motion.button>
+          Sign In
+        </button>
       </form>
-    </motion.div>
+    </div>
   );
 }
 
