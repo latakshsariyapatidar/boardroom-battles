@@ -205,7 +205,9 @@ function JudgeDashboard({ token, onLogout, setIsLoading }) {
 
   // Resilient Vote Counter for Google Sheet / API payload formats
   const getVoteCounts = (data, targetID) => {
-    if (!data) return { for: 0, against: 0, neutral: 0, total: 0, rows: [] };
+    if (!data) return { for: 0, against: 0, neutral: 0, total: 0, rows: [], scores: [] };
+
+    const scoresList = Array.isArray(data.scores) ? data.scores : [];
 
     // Option 1: Direct aggregated object { for, against, neutral } or { agree, disagree, neutral }
     if (data.results && typeof data.results === 'object' && !Array.isArray(data.results)) {
@@ -217,7 +219,8 @@ function JudgeDashboard({ token, onLogout, setIsLoading }) {
         against: disagree,
         neutral: neutral,
         total: agree + disagree + neutral,
-        rows: Array.isArray(data.votes) ? data.votes : []
+        rows: Array.isArray(data.votes) ? data.votes : [],
+        scores: scoresList
       };
     }
 
@@ -260,7 +263,8 @@ function JudgeDashboard({ token, onLogout, setIsLoading }) {
       against: againstCount,
       neutral: neutralCount,
       total: forCount + againstCount + neutralCount,
-      rows: matchedRows
+      rows: matchedRows,
+      scores: scoresList
     };
   };
 
@@ -320,6 +324,29 @@ function JudgeDashboard({ token, onLogout, setIsLoading }) {
           {success}
         </div>
       )}
+
+      {/* Judge Instructions & Feature Guide */}
+      <div className="bg-orange-50/70 border border-orange-200 p-4 rounded-xl mb-8 text-slate-800 text-xs shadow-sm">
+        <div className="flex justify-between items-center mb-2">
+          <div className="flex items-center gap-2 text-orange-900 font-bold text-sm">
+            <span>⚖️ Judge Panel Guidelines & Rules</span>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-2 pt-2 border-t border-orange-200/60 leading-relaxed font-medium">
+          <div className="bg-white/80 p-2.5 rounded-lg border border-orange-100">
+            <p className="font-bold text-orange-900 mb-0.5">1. Publish Motions</p>
+            <p className="text-slate-600">Set statement text, select your hidden stance (Agree/Disagree), and set duration minutes.</p>
+          </div>
+          <div className="bg-white/80 p-2.5 rounded-lg border border-orange-100">
+            <p className="font-bold text-orange-900 mb-0.5">2. Motion Control</p>
+            <p className="text-slate-600">Activate or deactivate motions anytime. Participants receive new active motions automatically.</p>
+          </div>
+          <div className="bg-white/80 p-2.5 rounded-lg border border-orange-100">
+            <p className="font-bold text-orange-900 mb-0.5">3. Live Leaderboard</p>
+            <p className="text-slate-600">Participant scores calculate automatically in Google Sheets based on stance agreement & vote penalty rules.</p>
+          </div>
+        </div>
+      </div>
 
       {/* Set New Statement */}
       <div className="bg-white border-2 border-slate-200 p-6 rounded-xl mb-8 shadow-sm">
@@ -479,56 +506,97 @@ function JudgeDashboard({ token, onLogout, setIsLoading }) {
         </div>
 
         <div className="space-y-6">
-          {/* Stat Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="p-4 rounded-lg bg-green-50 border border-green-200 text-center">
-              <p className="text-xs font-bold text-green-700 uppercase">AGREE (FOR)</p>
-              <p className="text-3xl font-black text-green-700 mt-1">{voteCounts.for}</p>
-            </div>
-            <div className="p-4 rounded-lg bg-red-50 border border-red-200 text-center">
-              <p className="text-xs font-bold text-red-700 uppercase">DISAGREE (AGAINST)</p>
-              <p className="text-3xl font-black text-red-700 mt-1">{voteCounts.against}</p>
-            </div>
-            <div className="p-4 rounded-lg bg-slate-100 border border-slate-200 text-center">
-              <p className="text-xs font-bold text-slate-700 uppercase">NEUTRAL</p>
-              <p className="text-3xl font-black text-slate-700 mt-1">{voteCounts.neutral}</p>
-            </div>
-            <div className="p-4 rounded-lg bg-orange-50 border border-orange-200 text-center">
-              <p className="text-xs font-bold text-orange-700 uppercase">TOTAL VOTES</p>
-              <p className="text-3xl font-black text-orange-700 mt-1">{voteCounts.total}</p>
-            </div>
-          </div>
+          {/* Only render breakdown charts if vote total > 0 */}
+          {voteCounts.total > 0 && (
+            <>
+              {/* Stat Cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="p-4 rounded-lg bg-green-50 border border-green-200 text-center">
+                  <p className="text-xs font-bold text-green-700 uppercase">AGREE (FOR)</p>
+                  <p className="text-3xl font-black text-green-700 mt-1">{voteCounts.for}</p>
+                </div>
+                <div className="p-4 rounded-lg bg-red-50 border border-red-200 text-center">
+                  <p className="text-xs font-bold text-red-700 uppercase">DISAGREE (AGAINST)</p>
+                  <p className="text-3xl font-black text-red-700 mt-1">{voteCounts.against}</p>
+                </div>
+                <div className="p-4 rounded-lg bg-slate-100 border border-slate-200 text-center">
+                  <p className="text-xs font-bold text-slate-700 uppercase">NEUTRAL</p>
+                  <p className="text-3xl font-black text-slate-700 mt-1">{voteCounts.neutral}</p>
+                </div>
+                <div className="p-4 rounded-lg bg-orange-50 border border-orange-200 text-center">
+                  <p className="text-xs font-bold text-orange-700 uppercase">TOTAL VOTES</p>
+                  <p className="text-3xl font-black text-orange-700 mt-1">{voteCounts.total}</p>
+                </div>
+              </div>
 
-          {/* Chart */}
-          <div className="p-4 bg-white rounded-lg border border-slate-200">
-            <Bar
-              data={chartData}
-              options={{
-                responsive: true,
-                maintainAspectRatio: true,
-                scales: {
-                  y: {
-                    beginAtZero: true,
-                    ticks: { color: '#334155', precision: 0 },
-                    grid: { color: '#f1f5f9' }
-                  },
-                  x: {
-                    ticks: { color: '#0f172a', font: { weight: 'bold', size: 12 } },
-                    grid: { display: false }
-                  }
-                },
-                plugins: {
-                  legend: { display: false },
-                  title: {
-                    display: true,
-                    text: `Voting Outcome Breakdown (${selectedStatementForResults || 'All Statements'})`,
-                    color: '#0f172a',
-                    font: { size: 14, weight: 'bold' }
-                  }
-                }
-              }}
-            />
-          </div>
+              {/* Chart */}
+              <div className="p-4 bg-white rounded-lg border border-slate-200">
+                <Bar
+                  data={chartData}
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    scales: {
+                      y: {
+                        beginAtZero: true,
+                        ticks: { color: '#334155', precision: 0 },
+                        grid: { color: '#f1f5f9' }
+                      },
+                      x: {
+                        ticks: { color: '#0f172a', font: { weight: 'bold', size: 12 } },
+                        grid: { display: false }
+                      }
+                    },
+                    plugins: {
+                      legend: { display: false },
+                      title: {
+                        display: true,
+                        text: `Voting Outcome Breakdown (${selectedStatementForResults || 'All Statements'})`,
+                        color: '#0f172a',
+                        font: { size: 14, weight: 'bold' }
+                      }
+                    }
+                  }}
+                />
+              </div>
+            </>
+          )}
+
+          {/* Participant Scores & Leaderboard */}
+          {voteCounts.scores && voteCounts.scores.length > 0 && (
+            <div className="mt-2 border border-slate-200 rounded-lg overflow-hidden">
+              <div className="bg-orange-50 px-4 py-3 border-b border-orange-200 flex justify-between items-center">
+                <h4 className="text-xs font-bold text-orange-900 uppercase tracking-wider">
+                  Participant Scores Leaderboard ({voteCounts.scores.length} Participants)
+                </h4>
+                <span className="text-[10px] font-bold text-orange-700 bg-orange-100 px-2.5 py-0.5 rounded border border-orange-200">
+                  Google Sheet Synced
+                </span>
+              </div>
+              <div className="overflow-x-auto max-h-64">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 text-slate-700 font-bold uppercase border-b border-slate-200 sticky top-0">
+                    <tr>
+                      <th className="p-3">Rank</th>
+                      <th className="p-3">User ID</th>
+                      <th className="p-3">Username</th>
+                      <th className="p-3">Score</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 font-medium">
+                    {voteCounts.scores.map((user, idx) => (
+                      <tr key={user.userID || idx} className="hover:bg-slate-50">
+                        <td className="p-3 font-mono font-bold text-slate-500">#{idx + 1}</td>
+                        <td className="p-3 font-mono text-slate-900 font-bold">{user.userID}</td>
+                        <td className="p-3 text-slate-700 capitalize font-semibold">{user.username}</td>
+                        <td className="p-3 font-black text-orange-600 text-sm">{user.score} pts</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
           {/* Google Sheets Detailed Votes Log Table */}
           {voteCounts.rows && voteCounts.rows.length > 0 && (
