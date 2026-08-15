@@ -46,6 +46,9 @@ function App() {
       sessionStorage.removeItem('role');
       localStorage.removeItem('token');
       localStorage.removeItem('role');
+      localStorage.removeItem('voteHistory');
+      localStorage.removeItem('voteCounts');
+      localStorage.removeItem('neutralUsed');
     } finally {
       setIsLoading({ active: false, message: '' });
     }

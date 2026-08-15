@@ -238,8 +238,9 @@ function JudgeDashboard({ token, onLogout, setIsLoading }) {
     let neutralCount = 0;
     const matchedRows = [];
     const searchTarget = String(targetID || '').toLowerCase();
+    const latestVoteByUser = new Map();
 
-    rawRows.forEach((row) => {
+    rawRows.forEach((row, idx) => {
       const rowStatement = String(row.StatementID || row.statementID || row.statement_id || '').toLowerCase();
       const isMatch = !searchTarget || 
                       rowStatement === searchTarget || 
@@ -247,14 +248,20 @@ function JudgeDashboard({ token, onLogout, setIsLoading }) {
 
       if (isMatch) {
         matchedRows.push(row);
+        const userId = row.UserID || row.userID || row.user_id || `anon_${idx}`;
         const v = String(row.Vote || row.vote || '').toLowerCase();
-        if (v === 'agree' || v === 'for') {
-          forCount++;
-        } else if (v === 'disagree' || v === 'against') {
-          againstCount++;
-        } else if (v === 'neutral' || v === 'no_vote') {
-          neutralCount++;
-        }
+        // Since logs are appended chronologically, later entries for the same user represent their current stance
+        latestVoteByUser.set(userId, v);
+      }
+    });
+
+    latestVoteByUser.forEach((v) => {
+      if (v === 'agree' || v === 'for') {
+        forCount++;
+      } else if (v === 'disagree' || v === 'against') {
+        againstCount++;
+      } else if (v === 'neutral' || v === 'no_vote') {
+        neutralCount++;
       }
     });
 

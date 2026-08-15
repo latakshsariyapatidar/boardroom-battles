@@ -114,24 +114,42 @@ function ParticipantDashboard({ token, onLogout, setIsLoading }) {
       setError('You have already used your neutral vote for this session!');
       return;
     }
+    const statementID = statement.statementID;
+    const currentCount = voteCounts[statementID] || 0;
+    if (currentCount >= 2) {
+      setError('You have reached the maximum 2 votes limit for this statement');
+      return;
+    }
     setIsNeutralModalOpen(true);
   };
 
   const handleNeutralSubmit = async () => {
-    setNeutralUsed(true);
-    localStorage.setItem('neutralUsed', 'true');
-    setSuccess('Neutral vote submitted successfully');
-    const newHistory = history.filter(entry => entry.statementID !== statement.statementID);
-    newHistory.push({ statementID: statement.statementID, vote: 'neutral' });
-    setHistory(newHistory);
-    localStorage.setItem('voteHistory', JSON.stringify(newHistory));
-    setIsNeutralModalOpen(false);
-    setIsChangingVote(false);
-
+    if (!statement || !statement.statementID) return;
+    setIsLoading({ active: true, message: 'Submitting Neutral Vote' });
     try {
-      await apiCall({ action: 'vote', token, statementID: statement.statementID, vote: 'neutral' });
+      const data = await apiCall({ action: 'vote', token, statementID: statement.statementID, vote: 'neutral' });
+      if (data && (data.success !== false)) {
+        setNeutralUsed(true);
+        localStorage.setItem('neutralUsed', 'true');
+        setSuccess('Neutral vote submitted successfully');
+        setError(null);
+        const statementID = statement.statementID;
+        const newHistory = history.filter(entry => entry.statementID !== statementID);
+        newHistory.push({ statementID, vote: 'neutral' });
+        setHistory(newHistory);
+        localStorage.setItem('voteHistory', JSON.stringify(newHistory));
+        const newVoteCounts = { ...voteCounts, [statementID]: (voteCounts[statementID] || 0) + 1 };
+        setVoteCounts(newVoteCounts);
+        localStorage.setItem('voteCounts', JSON.stringify(newVoteCounts));
+        setIsNeutralModalOpen(false);
+        setIsChangingVote(false);
+      } else {
+        setError(data?.error || 'Failed to submit neutral vote');
+      }
     } catch (err) {
-      console.error('Failed to submit neutral vote:', err);
+      setError('Network error: ' + err.message);
+    } finally {
+      setIsLoading({ active: false, message: '' });
     }
   };
 
