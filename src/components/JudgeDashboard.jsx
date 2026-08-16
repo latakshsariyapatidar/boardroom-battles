@@ -265,13 +265,82 @@ function JudgeDashboard({ token, onLogout, setIsLoading }) {
       }
     });
 
+    // Calculate accurate deduplicated scores per user per statement (prevents 2.5 + 1.25 = 3.75 double-counting bug)
+    let effectiveScores = scoresList;
+    if (rawRows.length > 0) {
+      const statementJudgeVoteMap = new Map();
+      statements.forEach((s) => {
+        const sId = String(s.statementID || '').toLowerCase();
+        const jv = String(s.judgeVote || s.JudgeVote || '').toLowerCase();
+        statementJudgeVoteMap.set(sId, jv);
+      });
+
+      const userVotesMap = new Map();
+      rawRows.forEach((row, idx) => {
+        const userId = String(row.UserID || row.userID || row.user_id || `User_${idx}`);
+        const username = String(row.Username || row.username || userId);
+        const rowStatement = String(row.StatementID || row.statementID || row.statement_id || '').toLowerCase();
+        const vote = String(row.Vote || row.vote || '').toLowerCase();
+
+        if (!userVotesMap.has(userId)) {
+          userVotesMap.set(userId, { userId, username, votesByStatement: new Map() });
+        }
+        const userObj = userVotesMap.get(userId);
+        if (!userObj.votesByStatement.has(rowStatement)) {
+          userObj.votesByStatement.set(rowStatement, []);
+        }
+        userObj.votesByStatement.get(rowStatement).push(vote);
+      });
+
+      const calculated = [];
+      userVotesMap.forEach((userObj) => {
+        let totalScore = 0;
+        userObj.votesByStatement.forEach((votesList, stmtId) => {
+          const judgeVote = statementJudgeVoteMap.get(stmtId);
+          if (!judgeVote) return;
+          const isJudgeAgree = judgeVote === 'agree' || judgeVote === 'for';
+          const isJudgeDisagree = judgeVote === 'disagree' || judgeVote === 'against';
+
+          const finalVote = votesList[votesList.length - 1];
+          const voteCount = votesList.length;
+
+          if (finalVote === 'neutral' || finalVote === 'no_vote') {
+            totalScore += 0;
+          } else {
+            const isUserAgree = finalVote === 'agree' || finalVote === 'for';
+            const isUserDisagree = finalVote === 'disagree' || finalVote === 'against';
+            const isCorrect = (isUserAgree && isJudgeAgree) || (isUserDisagree && isJudgeDisagree);
+
+            if (isCorrect) {
+              // 1st vote gets full +2.5. If changed (2nd vote), 50% penalty replaces the score -> exactly +1.25 (NOT 2.5 + 1.25 = 3.75)
+              totalScore += voteCount > 1 ? 1.25 : 2.5;
+            } else {
+              // Incorrect vote gets -0.5
+              totalScore -= 0.5;
+            }
+          }
+        });
+
+        calculated.push({
+          userID: userObj.userId,
+          username: userObj.username,
+          score: Number(totalScore.toFixed(2))
+        });
+      });
+
+      if (calculated.length > 0) {
+        calculated.sort((a, b) => b.score - a.score);
+        effectiveScores = calculated;
+      }
+    }
+
     return {
       for: forCount,
       against: againstCount,
       neutral: neutralCount,
       total: forCount + againstCount + neutralCount,
       rows: matchedRows,
-      scores: scoresList
+      scores: effectiveScores
     };
   };
 
@@ -350,7 +419,7 @@ function JudgeDashboard({ token, onLogout, setIsLoading }) {
           </div>
           <div className="bg-white/80 p-2.5 rounded-lg border border-orange-100">
             <p className="font-bold text-orange-900 mb-0.5">3. Live Leaderboard</p>
-            <p className="text-slate-600">Participant scores calculate automatically in Google Sheets based on stance agreement & vote penalty rules.</p>
+            <p className="text-slate-600">Scoring: <strong>+2.5 pts</strong> for correct stance, <strong>-0.5 pts</strong> for incorrect stance, <strong>0 pts</strong> for neutral, and <strong>+1.25 pts</strong> on changed votes.</p>
           </div>
         </div>
       </div>
@@ -596,7 +665,12 @@ function JudgeDashboard({ token, onLogout, setIsLoading }) {
                         <td className="p-3 font-mono font-bold text-slate-500">#{idx + 1}</td>
                         <td className="p-3 font-mono text-slate-900 font-bold">{user.userID}</td>
                         <td className="p-3 text-slate-700 capitalize font-semibold">{user.username}</td>
-                        <td className="p-3 font-black text-orange-600 text-sm">{user.score} pts</td>
+                        <td className={`p-3 font-black text-sm ${
+                          Number(user.score) > 0 ? 'text-green-600' :
+                          Number(user.score) < 0 ? 'text-red-600' : 'text-slate-600'
+                        }`}>
+                          {Number(user.score) > 0 ? `+${user.score}` : user.score} pts
+                        </td>
                       </tr>
                     ))}
                   </tbody>

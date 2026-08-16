@@ -49,6 +49,7 @@ function App() {
       localStorage.removeItem('voteHistory');
       localStorage.removeItem('voteCounts');
       localStorage.removeItem('neutralUsed');
+      localStorage.removeItem('neutralUsedByRound');
     } finally {
       setIsLoading({ active: false, message: '' });
     }

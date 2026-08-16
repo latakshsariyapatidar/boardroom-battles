@@ -6,7 +6,7 @@ import { apiCall, subscribeLiveChanges } from '../services/api';
 function ParticipantDashboard({ token, onLogout, setIsLoading }) {
   const [statement, setStatement] = useState(null);
   const [history, setHistory] = useState(JSON.parse(localStorage.getItem('voteHistory') || '[]'));
-  const [neutralUsed, setNeutralUsed] = useState(localStorage.getItem('neutralUsed') === 'true');
+  const [neutralUsedByRound, setNeutralUsedByRound] = useState(JSON.parse(localStorage.getItem('neutralUsedByRound') || '{}'));
   const [voteCounts, setVoteCounts] = useState(JSON.parse(localStorage.getItem('voteCounts') || '{}'));
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
@@ -15,6 +15,9 @@ function ParticipantDashboard({ token, onLogout, setIsLoading }) {
   const [voteChoice, setVoteChoice] = useState('');
   const [isChangingVote, setIsChangingVote] = useState(false);
   const [showInstructions, setShowInstructions] = useState(true);
+
+  const currentStatementID = statement?.statementID;
+  const isNeutralUsedCurrent = Boolean(currentStatementID && neutralUsedByRound[currentStatementID]);
 
   const fetchStatement = async (silent = false) => {
     if (!silent) setIsLoading({ active: true, message: 'Loading Statement' });
@@ -110,8 +113,8 @@ function ParticipantDashboard({ token, onLogout, setIsLoading }) {
       setError('This statement is no longer active');
       return;
     }
-    if (neutralUsed) {
-      setError('You have already used your neutral vote for this session!');
+    if (isNeutralUsedCurrent) {
+      setError('You have already used your neutral vote for this round!');
       return;
     }
     const statementID = statement.statementID;
@@ -129,11 +132,12 @@ function ParticipantDashboard({ token, onLogout, setIsLoading }) {
     try {
       const data = await apiCall({ action: 'vote', token, statementID: statement.statementID, vote: 'neutral' });
       if (data && (data.success !== false)) {
-        setNeutralUsed(true);
-        localStorage.setItem('neutralUsed', 'true');
+        const statementID = statement.statementID;
+        const newNeutralByRound = { ...neutralUsedByRound, [statementID]: true };
+        setNeutralUsedByRound(newNeutralByRound);
+        localStorage.setItem('neutralUsedByRound', JSON.stringify(newNeutralByRound));
         setSuccess('Neutral vote submitted successfully');
         setError(null);
-        const statementID = statement.statementID;
         const newHistory = history.filter(entry => entry.statementID !== statementID);
         newHistory.push({ statementID, vote: 'neutral' });
         setHistory(newHistory);
@@ -153,7 +157,6 @@ function ParticipantDashboard({ token, onLogout, setIsLoading }) {
     }
   };
 
-  const currentStatementID = statement?.statementID;
   const votesCastOnCurrent = currentStatementID ? (voteCounts[currentStatementID] || 0) : 0;
   const remainingVotes = Math.max(0, 2 - votesCastOnCurrent);
   const currentVoteEntry = history.find(entry => entry.statementID === currentStatementID);
@@ -204,15 +207,15 @@ function ParticipantDashboard({ token, onLogout, setIsLoading }) {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3 pt-3 border-t border-orange-200/60 leading-relaxed font-medium">
                 <div className="bg-white/80 p-2.5 rounded-lg border border-orange-100">
                   <p className="font-bold text-orange-900 mb-0.5">1st Vote (Initial)</p>
-                  <p className="text-slate-600">Eligible for <strong>100% full points</strong> if your stance matches the judge's hidden decision.</p>
+                  <p className="text-slate-600">Earn <strong>+2.5 points</strong> if your stance matches the judge's hidden decision, or <strong>-0.5 points</strong> if incorrect.</p>
                 </div>
                 <div className="bg-white/80 p-2.5 rounded-lg border border-orange-100">
                   <p className="font-bold text-orange-900 mb-0.5">2nd Vote (Change Vote)</p>
-                  <p className="text-slate-600">You can change your vote <strong>once</strong> per motion. Changing causes a <strong>50% score penalty</strong>.</p>
+                  <p className="text-slate-600">You can change your vote <strong>once</strong> per motion. Changing incurs a <strong>50% penalty</strong> (+1.25 pts for correct, -0.5 pts if incorrect).</p>
                 </div>
                 <div className="bg-white/80 p-2.5 rounded-lg border border-orange-100">
                   <p className="font-bold text-orange-900 mb-0.5">Neutral Stance</p>
-                  <p className="text-slate-600">Can be used <strong>only 1 time per session</strong>. Earns 0 points without score penalties.</p>
+                  <p className="text-slate-600">Can be used <strong>once per round</strong>. Earns <strong>0 points</strong> (no penalty / no negative deduction).</p>
                 </div>
                 <div className="bg-white/80 p-2.5 rounded-lg border border-orange-100">
                   <p className="font-bold text-orange-900 mb-0.5">Instant Motion Sync</p>
@@ -269,8 +272,8 @@ function ParticipantDashboard({ token, onLogout, setIsLoading }) {
                     votesCastOnCurrent === 0 ? 'text-green-600' :
                     votesCastOnCurrent === 1 ? 'text-amber-600' : 'text-red-600'
                   }`}>
-                    {votesCastOnCurrent === 0 ? 'No Penalty (100% Pts)' :
-                     votesCastOnCurrent === 1 ? '50% Penalty Applied' : 'Limit Reached'}
+                    {votesCastOnCurrent === 0 ? 'Full Points (+2.5 / -0.5 pts)' :
+                     votesCastOnCurrent === 1 ? '50% Penalty (+1.25 / -0.5 pts)' : 'Limit Reached'}
                   </p>
                 </div>
               </div>
@@ -297,9 +300,9 @@ function ParticipantDashboard({ token, onLogout, setIsLoading }) {
                         <button
                           onClick={handleNoVote}
                           className={`py-3 px-4 rounded-lg font-bold text-sm text-slate-800 transition-colors bg-slate-200 hover:bg-slate-300 ${
-                            neutralUsed ? 'opacity-50 cursor-not-allowed' : ''
+                            isNeutralUsedCurrent ? 'opacity-50 cursor-not-allowed' : ''
                           }`}
-                          disabled={neutralUsed}
+                          disabled={isNeutralUsedCurrent}
                         >
                           No Vote (Neutral)
                         </button>
@@ -327,7 +330,7 @@ function ParticipantDashboard({ token, onLogout, setIsLoading }) {
                         </button>
                       </div>
                       <p className="text-xs text-amber-700 font-semibold bg-amber-50 p-2.5 rounded border border-amber-200">
-                        ⚠️ Note: Changing your vote will incur a 50% score penalty for this statement.
+                        ⚠️ Note: Changing your vote will incur a 50% score penalty (+1.25 pts if correct, -0.5 pts if incorrect).
                       </p>
                     </div>
                   )}
@@ -336,7 +339,7 @@ function ParticipantDashboard({ token, onLogout, setIsLoading }) {
                   {votesCastOnCurrent === 1 && isChangingVote && (
                     <div className="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
                       <div className="flex justify-between items-center mb-1">
-                        <p className="text-xs font-bold text-slate-800 uppercase tracking-wider">Select Your New Stance (50% Penalty Applies)</p>
+                        <p className="text-xs font-bold text-slate-800 uppercase tracking-wider">Select Your New Stance (50% Penalty Applies: +1.25 / -0.5 pts)</p>
                         <button
                           onClick={() => setIsChangingVote(false)}
                           className="text-xs font-bold text-slate-500 hover:text-slate-700"
@@ -360,9 +363,9 @@ function ParticipantDashboard({ token, onLogout, setIsLoading }) {
                         <button
                           onClick={handleNoVote}
                           className={`py-3 px-4 rounded-lg font-bold text-sm text-slate-800 transition-colors bg-slate-200 hover:bg-slate-300 ${
-                            neutralUsed ? 'opacity-50 cursor-not-allowed' : ''
+                            isNeutralUsedCurrent ? 'opacity-50 cursor-not-allowed' : ''
                           }`}
-                          disabled={neutralUsed}
+                          disabled={isNeutralUsedCurrent}
                         >
                           No Vote (Neutral)
                         </button>
@@ -426,8 +429,8 @@ function ParticipantDashboard({ token, onLogout, setIsLoading }) {
           )}
 
           <div className="pt-3 border-t border-slate-100 text-xs text-slate-500 space-y-1">
-            <p className="font-bold text-slate-700">Session Stats</p>
-            <p>• Neutral Vote: <strong className={neutralUsed ? 'text-red-600' : 'text-green-600'}>{neutralUsed ? 'USED (0 left)' : 'AVAILABLE (1 left)'}</strong></p>
+            <p className="font-bold text-slate-700">Round Stats</p>
+            <p>• Round Neutral: <strong className={isNeutralUsedCurrent ? 'text-red-600' : 'text-green-600'}>{isNeutralUsedCurrent ? 'USED (0 left this round)' : 'AVAILABLE (1 left this round)'}</strong></p>
           </div>
         </div>
       </div>
@@ -443,9 +446,13 @@ function ParticipantDashboard({ token, onLogout, setIsLoading }) {
           <p className="text-slate-700 text-sm font-medium">
             Are you sure you want to vote <strong className="uppercase text-orange-600">{voteChoice}</strong> for statement "{statement?.text}"?
           </p>
-          {votesCastOnCurrent === 1 && (
+          {votesCastOnCurrent === 1 ? (
             <p className="text-xs font-bold text-amber-700 bg-amber-50 p-2.5 rounded border border-amber-200">
-              ⚠️ Penalty Notice: This is your 2nd vote on this statement. A 50% score penalty will apply.
+              ⚠️ Penalty Notice: This is your 2nd vote on this statement. A 50% score penalty will apply (+1.25 pts if correct, -0.5 pts if incorrect).
+            </p>
+          ) : (
+            <p className="text-xs font-semibold text-slate-500 bg-slate-50 p-2.5 rounded border border-slate-200">
+              ℹ️ Scoring: <strong>+2.5 points</strong> for correct prediction, <strong>-0.5 points</strong> for incorrect prediction.
             </p>
           )}
         </div>
@@ -460,10 +467,10 @@ function ParticipantDashboard({ token, onLogout, setIsLoading }) {
       >
         <div className="space-y-3">
           <p className="text-slate-700 text-sm font-medium">
-            Are you sure you want to submit a neutral vote? This action can only be performed once per session.
+            Are you sure you want to submit a neutral vote? This action can only be performed once per round.
           </p>
           <p className="text-xs font-bold text-slate-600 bg-slate-100 p-2.5 rounded border border-slate-200">
-            ℹ️ Neutral votes earn 0 points and do not count towards matching the judge's stance.
+            ℹ️ Neutral votes earn 0 points (neither +2.5 nor -0.5) and protect against negative points.
           </p>
         </div>
       </Modal>
