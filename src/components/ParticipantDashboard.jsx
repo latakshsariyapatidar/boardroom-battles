@@ -22,7 +22,7 @@ function ParticipantDashboard({ token, onLogout, setIsLoading }) {
   const fetchStatement = async (silent = false) => {
     if (!silent) setIsLoading({ active: true, message: 'Loading Statement' });
     try {
-      const data = await apiCall({ action: 'getStatement' });
+      const data = await apiCall({ action: 'getStatement', token });
       if (data.success) {
         setStatement(data);
         if (data.createdAt && data.durationMinutes) {
@@ -72,7 +72,7 @@ function ParticipantDashboard({ token, onLogout, setIsLoading }) {
       return;
     }
     const statementID = statement.statementID;
-    const currentCount = voteCounts[statementID] || 0;
+    const currentCount = statement?.userVoteCount || 0;
     if (currentCount >= 2) {
       setError('You have reached the maximum 2 votes limit for this statement');
       return;
@@ -93,9 +93,8 @@ function ParticipantDashboard({ token, onLogout, setIsLoading }) {
         newHistory.push({ statementID, vote: voteChoice });
         setHistory(newHistory);
         localStorage.setItem('voteHistory', JSON.stringify(newHistory));
-        const newVoteCounts = { ...voteCounts, [statementID]: (voteCounts[statementID] || 0) + 1 };
-        setVoteCounts(newVoteCounts);
-        localStorage.setItem('voteCounts', JSON.stringify(newVoteCounts));
+        // Force refresh to get updated userVoteCount
+        fetchStatement(true);
         setIsVoteModalOpen(false);
         setIsChangingVote(false);
       } else {
@@ -118,7 +117,7 @@ function ParticipantDashboard({ token, onLogout, setIsLoading }) {
       return;
     }
     const statementID = statement.statementID;
-    const currentCount = voteCounts[statementID] || 0;
+    const currentCount = statement?.userVoteCount || 0;
     if (currentCount >= 2) {
       setError('You have reached the maximum 2 votes limit for this statement');
       return;
@@ -142,9 +141,8 @@ function ParticipantDashboard({ token, onLogout, setIsLoading }) {
         newHistory.push({ statementID, vote: 'neutral' });
         setHistory(newHistory);
         localStorage.setItem('voteHistory', JSON.stringify(newHistory));
-        const newVoteCounts = { ...voteCounts, [statementID]: (voteCounts[statementID] || 0) + 1 };
-        setVoteCounts(newVoteCounts);
-        localStorage.setItem('voteCounts', JSON.stringify(newVoteCounts));
+        // Force refresh to get updated userVoteCount
+        fetchStatement(true);
         setIsNeutralModalOpen(false);
         setIsChangingVote(false);
       } else {
@@ -157,7 +155,7 @@ function ParticipantDashboard({ token, onLogout, setIsLoading }) {
     }
   };
 
-  const votesCastOnCurrent = currentStatementID ? (voteCounts[currentStatementID] || 0) : 0;
+  const votesCastOnCurrent = statement?.userVoteCount || 0;
   const remainingVotes = Math.max(0, 2 - votesCastOnCurrent);
   const currentVoteEntry = history.find(entry => entry.statementID === currentStatementID);
   const currentStance = currentVoteEntry?.vote;

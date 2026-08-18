@@ -209,24 +209,9 @@ function JudgeDashboard({ token, onLogout, setIsLoading }) {
 
     const scoresList = Array.isArray(data.scores) ? data.scores : [];
 
-    // Option 1: Direct aggregated object { for, against, neutral } or { agree, disagree, neutral }
-    if (data.results && typeof data.results === 'object' && !Array.isArray(data.results)) {
-      const agree = Number(data.results.agree ?? data.results.for ?? 0);
-      const disagree = Number(data.results.disagree ?? data.results.against ?? 0);
-      const neutral = Number(data.results.neutral ?? 0);
-      return {
-        for: agree,
-        against: disagree,
-        neutral: neutral,
-        total: agree + disagree + neutral,
-        rows: Array.isArray(data.votes) ? data.votes : [],
-        scores: scoresList
-      };
-    }
-
-    // Option 2: Array of Google Sheet vote rows (VoteID, UserID, StatementID, Vote, marks)
-    const rawRows = Array.isArray(data) ? data : (
-      Array.isArray(data.votes) ? data.votes : (
+    // Extract all raw vote rows from any supported data format (needed for score recalculation)
+    const allVoteRows = Array.isArray(data.votes) ? data.votes : (
+      Array.isArray(data) ? data : (
         Array.isArray(data.results) ? data.results : (
           Array.isArray(data.data) ? data.data : []
         )
@@ -236,103 +221,46 @@ function JudgeDashboard({ token, onLogout, setIsLoading }) {
     let forCount = 0;
     let againstCount = 0;
     let neutralCount = 0;
-    const matchedRows = [];
-    const searchTarget = String(targetID || '').toLowerCase();
-    const latestVoteByUser = new Map();
+    let matchedRows = [];
 
-    rawRows.forEach((row, idx) => {
-      const rowStatement = String(row.StatementID || row.statementID || row.statement_id || '').toLowerCase();
-      const isMatch = !searchTarget || 
-                      rowStatement === searchTarget || 
-                      rowStatement.replace(/[^a-z0-9]/g, '') === searchTarget.replace(/[^a-z0-9]/g, '');
+    // Option 1: Direct aggregated object { for, against, neutral } or { agree, disagree, neutral }
+    if (data.results && typeof data.results === 'object' && !Array.isArray(data.results)) {
+      forCount = Number(data.results.agree ?? data.results.for ?? 0);
+      againstCount = Number(data.results.disagree ?? data.results.against ?? 0);
+      neutralCount = Number(data.results.neutral ?? 0);
+      matchedRows = Array.isArray(data.votes) ? data.votes : [];
+    } else {
+      // Option 2: Array of Google Sheet vote rows (VoteID, UserID, StatementID, Vote, marks)
+      const searchTarget = String(targetID || '').toLowerCase();
+      const latestVoteByUser = new Map();
 
-      if (isMatch) {
-        matchedRows.push(row);
-        const userId = row.UserID || row.userID || row.user_id || `anon_${idx}`;
-        const v = String(row.Vote || row.vote || '').toLowerCase();
-        // Since logs are appended chronologically, later entries for the same user represent their current stance
-        latestVoteByUser.set(userId, v);
-      }
-    });
-
-    latestVoteByUser.forEach((v) => {
-      if (v === 'agree' || v === 'for') {
-        forCount++;
-      } else if (v === 'disagree' || v === 'against') {
-        againstCount++;
-      } else if (v === 'neutral' || v === 'no_vote') {
-        neutralCount++;
-      }
-    });
-
-    // Calculate accurate deduplicated scores per user per statement (prevents 2.5 + 1.25 = 3.75 double-counting bug)
-    let effectiveScores = scoresList;
-    if (rawRows.length > 0) {
-      const statementJudgeVoteMap = new Map();
-      statements.forEach((s) => {
-        const sId = String(s.statementID || '').toLowerCase();
-        const jv = String(s.judgeVote || s.JudgeVote || '').toLowerCase();
-        statementJudgeVoteMap.set(sId, jv);
-      });
-
-      const userVotesMap = new Map();
-      rawRows.forEach((row, idx) => {
-        const userId = String(row.UserID || row.userID || row.user_id || `User_${idx}`);
-        const username = String(row.Username || row.username || userId);
+      allVoteRows.forEach((row, idx) => {
         const rowStatement = String(row.StatementID || row.statementID || row.statement_id || '').toLowerCase();
-        const vote = String(row.Vote || row.vote || '').toLowerCase();
+        const isMatch = !searchTarget || 
+                        rowStatement === searchTarget || 
+                        rowStatement.replace(/[^a-z0-9]/g, '') === searchTarget.replace(/[^a-z0-9]/g, '');
 
-        if (!userVotesMap.has(userId)) {
-          userVotesMap.set(userId, { userId, username, votesByStatement: new Map() });
+        if (isMatch) {
+          matchedRows.push(row);
+          const userId = row.UserID || row.userID || row.user_id || `anon_${idx}`;
+          const v = String(row.Vote || row.vote || '').toLowerCase();
+          // Since logs are appended chronologically, later entries for the same user represent their current stance
+          latestVoteByUser.set(userId, v);
         }
-        const userObj = userVotesMap.get(userId);
-        if (!userObj.votesByStatement.has(rowStatement)) {
-          userObj.votesByStatement.set(rowStatement, []);
-        }
-        userObj.votesByStatement.get(rowStatement).push(vote);
       });
 
-      const calculated = [];
-      userVotesMap.forEach((userObj) => {
-        let totalScore = 0;
-        userObj.votesByStatement.forEach((votesList, stmtId) => {
-          const judgeVote = statementJudgeVoteMap.get(stmtId);
-          if (!judgeVote) return;
-          const isJudgeAgree = judgeVote === 'agree' || judgeVote === 'for';
-          const isJudgeDisagree = judgeVote === 'disagree' || judgeVote === 'against';
-
-          const finalVote = votesList[votesList.length - 1];
-          const voteCount = votesList.length;
-
-          if (finalVote === 'neutral' || finalVote === 'no_vote') {
-            totalScore += 0;
-          } else {
-            const isUserAgree = finalVote === 'agree' || finalVote === 'for';
-            const isUserDisagree = finalVote === 'disagree' || finalVote === 'against';
-            const isCorrect = (isUserAgree && isJudgeAgree) || (isUserDisagree && isJudgeDisagree);
-
-            if (isCorrect) {
-              // 1st vote gets full +2.5. If changed (2nd vote), 50% penalty replaces the score -> exactly +1.25 (NOT 2.5 + 1.25 = 3.75)
-              totalScore += voteCount > 1 ? 1.25 : 2.5;
-            } else {
-              // Incorrect vote gets -0.5
-              totalScore -= 0.5;
-            }
-          }
-        });
-
-        calculated.push({
-          userID: userObj.userId,
-          username: userObj.username,
-          score: Number(totalScore.toFixed(2))
-        });
+      latestVoteByUser.forEach((v) => {
+        if (v === 'agree' || v === 'for') {
+          forCount++;
+        } else if (v === 'disagree' || v === 'against') {
+          againstCount++;
+        } else if (v === 'neutral' || v === 'no_vote') {
+          neutralCount++;
+        }
       });
-
-      if (calculated.length > 0) {
-        calculated.sort((a, b) => b.score - a.score);
-        effectiveScores = calculated;
-      }
     }
+
+    let effectiveScores = scoresList;
 
     return {
       for: forCount,
