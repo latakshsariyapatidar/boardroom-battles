@@ -205,11 +205,11 @@ function ParticipantDashboard({ token, onLogout, setIsLoading }) {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3 pt-3 border-t border-orange-200/60 leading-relaxed font-medium">
                 <div className="bg-white/80 p-2.5 rounded-lg border border-orange-100">
                   <p className="font-bold text-orange-900 mb-0.5">1st Vote (Initial)</p>
-                  <p className="text-slate-600">Earn <strong>+2.5 points</strong> if your stance matches the judge's hidden decision, or <strong>-0.5 points</strong> if incorrect.</p>
+                  <p className="text-slate-600">Earn <strong>+2.5 points</strong> if your stance matches the judge's hidden decision, or <strong>-1.5 points</strong> if incorrect.</p>
                 </div>
                 <div className="bg-white/80 p-2.5 rounded-lg border border-orange-100">
                   <p className="font-bold text-orange-900 mb-0.5">2nd Vote (Change Vote)</p>
-                  <p className="text-slate-600">You can change your vote <strong>once</strong> per motion. Changing incurs a <strong>50% penalty</strong> (+1.25 pts for correct, -0.5 pts if incorrect).</p>
+                  <p className="text-slate-600">You can change your vote <strong>once</strong> per motion. Changing incurs a <strong>50% penalty</strong> (+1.25 pts for correct, -1.5 pts if incorrect).</p>
                 </div>
                 <div className="bg-white/80 p-2.5 rounded-lg border border-orange-100">
                   <p className="font-bold text-orange-900 mb-0.5">Neutral Stance</p>
@@ -270,8 +270,8 @@ function ParticipantDashboard({ token, onLogout, setIsLoading }) {
                     votesCastOnCurrent === 0 ? 'text-green-600' :
                     votesCastOnCurrent === 1 ? 'text-amber-600' : 'text-red-600'
                   }`}>
-                    {votesCastOnCurrent === 0 ? 'Full Points (+2.5 / -0.5 pts)' :
-                     votesCastOnCurrent === 1 ? '50% Penalty (+1.25 / -0.5 pts)' : 'Limit Reached'}
+                    {votesCastOnCurrent === 0 ? 'Full Points (+2.5 / -1.5 pts)' :
+                     votesCastOnCurrent === 1 ? '50% Penalty (+1.25 / -1.5 pts)' : 'Limit Reached'}
                   </p>
                 </div>
               </div>
@@ -328,7 +328,7 @@ function ParticipantDashboard({ token, onLogout, setIsLoading }) {
                         </button>
                       </div>
                       <p className="text-xs text-amber-700 font-semibold bg-amber-50 p-2.5 rounded border border-amber-200">
-                        ⚠️ Note: Changing your vote will incur a 50% score penalty (+1.25 pts if correct, -0.5 pts if incorrect).
+                        ⚠️ Note: Changing your vote will incur a 50% score penalty (+1.25 pts if correct, -1.5 pts if incorrect).
                       </p>
                     </div>
                   )}
@@ -337,7 +337,7 @@ function ParticipantDashboard({ token, onLogout, setIsLoading }) {
                   {votesCastOnCurrent === 1 && isChangingVote && (
                     <div className="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
                       <div className="flex justify-between items-center mb-1">
-                        <p className="text-xs font-bold text-slate-800 uppercase tracking-wider">Select Your New Stance (50% Penalty Applies: +1.25 / -0.5 pts)</p>
+                        <p className="text-xs font-bold text-slate-800 uppercase tracking-wider">Select Your New Stance (50% Penalty Applies: +1.25 / -1.5 pts)</p>
                         <button
                           onClick={() => setIsChangingVote(false)}
                           className="text-xs font-bold text-slate-500 hover:text-slate-700"
@@ -446,11 +446,11 @@ function ParticipantDashboard({ token, onLogout, setIsLoading }) {
           </p>
           {votesCastOnCurrent === 1 ? (
             <p className="text-xs font-bold text-amber-700 bg-amber-50 p-2.5 rounded border border-amber-200">
-              ⚠️ Penalty Notice: This is your 2nd vote on this statement. A 50% score penalty will apply (+1.25 pts if correct, -0.5 pts if incorrect).
+              ⚠️ Penalty Notice: This is your 2nd vote on this statement. A 50% score penalty will apply (+1.25 pts if correct, -1.5 pts if incorrect).
             </p>
           ) : (
             <p className="text-xs font-semibold text-slate-500 bg-slate-50 p-2.5 rounded border border-slate-200">
-              ℹ️ Scoring: <strong>+2.5 points</strong> for correct prediction, <strong>-0.5 points</strong> for incorrect prediction.
+              ℹ️ Scoring: <strong>+2.5 points</strong> for correct prediction, <strong>-1.5 points</strong> for incorrect prediction.
             </p>
           )}
         </div>
@@ -468,7 +468,7 @@ function ParticipantDashboard({ token, onLogout, setIsLoading }) {
             Are you sure you want to submit a neutral vote? This action can only be performed once per round.
           </p>
           <p className="text-xs font-bold text-slate-600 bg-slate-100 p-2.5 rounded border border-slate-200">
-            ℹ️ Neutral votes earn 0 points (neither +2.5 nor -0.5) and protect against negative points.
+            ℹ️ Neutral votes earn 0 points (neither +2.5 nor -1.5) and protect against negative points.
           </p>
         </div>
       </Modal>

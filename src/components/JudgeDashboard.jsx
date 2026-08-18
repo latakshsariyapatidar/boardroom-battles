@@ -347,7 +347,7 @@ function JudgeDashboard({ token, onLogout, setIsLoading }) {
           </div>
           <div className="bg-white/80 p-2.5 rounded-lg border border-orange-100">
             <p className="font-bold text-orange-900 mb-0.5">3. Live Leaderboard</p>
-            <p className="text-slate-600">Scoring: <strong>+2.5 pts</strong> for correct stance, <strong>-0.5 pts</strong> for incorrect stance, <strong>0 pts</strong> for neutral, and <strong>+1.25 pts</strong> on changed votes.</p>
+            <p className="text-slate-600">Scoring: <strong>+2.5 pts</strong> for correct stance, <strong>-1.5 pts</strong> for incorrect stance, <strong>0 pts</strong> for neutral, and <strong>+1.25 pts</strong> on changed votes.</p>
           </div>
         </div>
       </div>

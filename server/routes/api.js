@@ -127,8 +127,8 @@ router.post('/', async (req, res) => {
           // If first vote: 2.5, if changed vote: 1.25
           marks = userVotes.length > 0 ? 1.25 : 2.5;
         } else {
-          // Fixed penalty: -0.5 (was -2.5 before)
-          marks = -0.5;
+          // Fixed penalty: -1.5 (was -2.5 before)
+          marks = -1.5;
         }
       }
 
@@ -192,7 +192,7 @@ router.post('/', async (req, res) => {
             if (isCorrect) {
               totalScore += voteCount > 1 ? 1.25 : 2.5;
             } else {
-              totalScore -= 0.5;
+              totalScore -= 1.5;
             }
           }
         });
