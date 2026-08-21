@@ -115,6 +115,25 @@ router.post('/', async (req, res) => {
         return res.json({ success: false, error: 'Maximum vote limit reached for this statement' });
       }
 
+      /*
+      // --- FEATURE: 1 NEUTRAL VOTE IN ENTIRE SESSION (Commented out as requested) ---
+      // To enforce only 1 neutral vote in the entire competition session across all statements,
+      // uncomment the block below:
+      if (vote === 'neutral' || vote === 'no_vote') {
+        const existingSessionNeutral = await Vote.findOne({
+          userID: currentUser.userID,
+          vote: { $in: ['neutral', 'no_vote'] }
+        });
+        if (existingSessionNeutral && existingSessionNeutral.statementID !== statementID) {
+          return res.json({
+            success: false,
+            error: 'You have already used your neutral vote for the entire session.'
+          });
+        }
+      }
+      // -------------------------------------------------------------------------------
+      */
+
       let marks = 0;
       if (vote !== 'neutral' && vote !== 'no_vote') {
         const isUserAgree = vote === 'agree' || vote === 'for';
@@ -153,12 +172,19 @@ router.post('/', async (req, res) => {
       
       const statements = await Statement.find();
       const allVotes = await Vote.find().sort({ createdAt: 1 });
+      const allParticipants = await User.find({ role: 'participant' }).select('userID username');
       
       const statementJudgeVoteMap = new Map();
       statements.forEach((s) => statementJudgeVoteMap.set(s.statementID, s.judgeVote));
 
       // Build scores list (deduplicated client-side style but computed server-side)
       const userVotesMap = new Map();
+      
+      // Initialize with all participants so everyone is in the leaderboard
+      allParticipants.forEach(p => {
+        userVotesMap.set(p.userID, { userID: p.userID, username: p.username, votesByStatement: new Map() });
+      });
+
       allVotes.forEach((row) => {
         if (!userVotesMap.has(row.userID)) {
           userVotesMap.set(row.userID, { userID: row.userID, username: row.username, votesByStatement: new Map() });
@@ -204,14 +230,18 @@ router.post('/', async (req, res) => {
       });
       scores.sort((a, b) => b.score - a.score);
 
-      // Current statement counts
+      // Current statement counts & Non-Voting teams identification
       let forCount = 0;
       let againstCount = 0;
       let neutralCount = 0;
       let activeVotes = [];
+      let nonVotingTeams = [];
       
-      if (statementID) {
-        const stmtVotes = allVotes.filter(v => v.statementID === statementID);
+      const targetStatementID = statementID || (statements[0]?.statementID);
+
+      if (targetStatementID) {
+        const stmtVotes = allVotes.filter(v => v.statementID === targetStatementID);
+        const votedUserIds = new Set(stmtVotes.map(v => v.userID));
         const latestVoteByStmtUser = new Map();
         stmtVotes.forEach(v => {
           latestVoteByStmtUser.set(v.userID, v.vote);
@@ -224,10 +254,16 @@ router.post('/', async (req, res) => {
           else if (lv === 'neutral' || lv === 'no_vote') neutralCount++;
         });
         activeVotes = stmtVotes; // send all rows to frontend
+
+        // Teams that have not voted on this target statement
+        nonVotingTeams = allParticipants
+          .filter(p => !votedUserIds.has(p.userID))
+          .map(p => ({ userID: p.userID, username: p.username }));
       }
 
       return res.json({
         success: true,
+        statementID: targetStatementID,
         results: {
           for: forCount,
           against: againstCount,
@@ -235,7 +271,9 @@ router.post('/', async (req, res) => {
           total: forCount + againstCount + neutralCount
         },
         votes: activeVotes, // Raw votes for JudgeDashboard matchedRows
-        scores // Pre-calculated, correct deduplicated scores
+        scores, // Pre-calculated, correct deduplicated scores
+        nonVotingTeams, // Teams that did not vote on this statement
+        totalParticipants: allParticipants.length
       });
     }
 

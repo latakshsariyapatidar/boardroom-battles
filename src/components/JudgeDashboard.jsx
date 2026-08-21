@@ -205,9 +205,10 @@ function JudgeDashboard({ token, onLogout, setIsLoading }) {
 
   // Resilient Vote Counter for Google Sheet / API payload formats
   const getVoteCounts = (data, targetID) => {
-    if (!data) return { for: 0, against: 0, neutral: 0, total: 0, rows: [], scores: [] };
+    if (!data) return { for: 0, against: 0, neutral: 0, total: 0, rows: [], scores: [], nonVotingTeams: [] };
 
     const scoresList = Array.isArray(data.scores) ? data.scores : [];
+    let directNonVoting = Array.isArray(data.nonVotingTeams) ? data.nonVotingTeams : null;
 
     // Extract all raw vote rows from any supported data format (needed for score recalculation)
     const allVoteRows = Array.isArray(data.votes) ? data.votes : (
@@ -222,6 +223,7 @@ function JudgeDashboard({ token, onLogout, setIsLoading }) {
     let againstCount = 0;
     let neutralCount = 0;
     let matchedRows = [];
+    const votedUserIds = new Set();
 
     // Option 1: Direct aggregated object { for, against, neutral } or { agree, disagree, neutral }
     if (data.results && typeof data.results === 'object' && !Array.isArray(data.results)) {
@@ -229,6 +231,10 @@ function JudgeDashboard({ token, onLogout, setIsLoading }) {
       againstCount = Number(data.results.disagree ?? data.results.against ?? 0);
       neutralCount = Number(data.results.neutral ?? 0);
       matchedRows = Array.isArray(data.votes) ? data.votes : [];
+      matchedRows.forEach(r => {
+        const uid = r.UserID || r.userID || r.user_id;
+        if (uid) votedUserIds.add(uid);
+      });
     } else {
       // Option 2: Array of Google Sheet vote rows (VoteID, UserID, StatementID, Vote, marks)
       const searchTarget = String(targetID || '').toLowerCase();
@@ -243,6 +249,7 @@ function JudgeDashboard({ token, onLogout, setIsLoading }) {
         if (isMatch) {
           matchedRows.push(row);
           const userId = row.UserID || row.userID || row.user_id || `anon_${idx}`;
+          votedUserIds.add(userId);
           const v = String(row.Vote || row.vote || '').toLowerCase();
           // Since logs are appended chronologically, later entries for the same user represent their current stance
           latestVoteByUser.set(userId, v);
@@ -262,13 +269,22 @@ function JudgeDashboard({ token, onLogout, setIsLoading }) {
 
     let effectiveScores = scoresList;
 
+    // Fallback compute non-voting teams if not directly provided in payload
+    let computedNonVoting = directNonVoting;
+    if (!computedNonVoting && effectiveScores.length > 0) {
+      computedNonVoting = effectiveScores
+        .filter(user => !votedUserIds.has(user.userID))
+        .map(user => ({ userID: user.userID, username: user.username }));
+    }
+
     return {
       for: forCount,
       against: againstCount,
       neutral: neutralCount,
       total: forCount + againstCount + neutralCount,
       rows: matchedRows,
-      scores: effectiveScores
+      scores: effectiveScores,
+      nonVotingTeams: computedNonVoting || []
     };
   };
 
@@ -566,9 +582,62 @@ function JudgeDashboard({ token, onLogout, setIsLoading }) {
             </>
           )}
 
+          {/* Teams That Did Not Vote on Selected Statement */}
+          <div className="mt-2 border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
+            <div className="bg-slate-100 px-4 py-3 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="text-base">⏳</span>
+                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                  Teams That Did Not Vote ({voteCounts.nonVotingTeams?.length || 0} Pending)
+                </h4>
+              </div>
+              <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded border ${
+                (voteCounts.nonVotingTeams?.length || 0) === 0
+                  ? 'bg-green-100 text-green-800 border-green-200'
+                  : 'bg-amber-100 text-amber-800 border-amber-200'
+              }`}>
+                {(voteCounts.nonVotingTeams?.length || 0) === 0 ? '✓ 100% Turnout (All Voted)' : `${voteCounts.nonVotingTeams?.length} Teams Yet to Vote`}
+              </span>
+            </div>
+
+            <div className="p-4">
+              {voteCounts.nonVotingTeams && voteCounts.nonVotingTeams.length > 0 ? (
+                <div>
+                  <p className="text-xs text-slate-600 font-medium mb-3">
+                    The following teams have <strong className="text-amber-700">not cast a vote</strong> for motion <span className="font-mono text-orange-600 font-bold">[{selectedStatementForResults || (statements[0]?.statementID || statements[0]?.StatementID) || 'Active'}]</span>:
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                    {voteCounts.nonVotingTeams.map((team, idx) => (
+                      <div
+                        key={team.userID || idx}
+                        className="flex items-center justify-between p-2.5 bg-amber-50/80 border border-amber-200 rounded-lg text-xs"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0"></span>
+                          <div className="truncate">
+                            <p className="font-bold text-slate-900 capitalize truncate">{team.username || 'Team'}</p>
+                            <p className="font-mono text-[10px] text-slate-500 font-semibold">{team.userID}</p>
+                          </div>
+                        </div>
+                        <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded border border-amber-300 shrink-0">
+                          No Vote
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 text-green-700 font-semibold text-xs py-1">
+                  <span className="text-sm">🎉</span>
+                  <span>All registered teams have submitted their votes for this statement!</span>
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Participant Scores & Leaderboard */}
           {voteCounts.scores && voteCounts.scores.length > 0 && (
-            <div className="mt-2 border border-slate-200 rounded-lg overflow-hidden">
+            <div className="mt-6 border border-slate-200 rounded-lg overflow-hidden">
               <div className="bg-orange-50 px-4 py-3 border-b border-orange-200 flex justify-between items-center">
                 <h4 className="text-xs font-bold text-orange-900 uppercase tracking-wider">
                   Participant Scores Leaderboard ({voteCounts.scores.length} Participants)

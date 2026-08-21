@@ -6,12 +6,25 @@ const Statement = require('./models/Statement');
 const Vote = require('./models/Vote');
 
 const users = [
-  { userID: 'J001', username: 'judge1', password: 'password', role: 'judge', token: 'judge_token_123' },
-  { userID: 'U001', username: 'Lataksh', password: 'password', role: 'participant', token: 'part_token_1' },
-  { userID: 'U002', username: 'Awaas', password: 'password', role: 'participant', token: 'part_token_2' },
-  { userID: 'U003', username: 'Atithya', password: 'password', role: 'participant', token: 'part_token_3' },
-  { userID: 'U004', username: 'Rakshak', password: 'password', role: 'participant', token: 'part_token_4' },
-  { userID: 'U005', username: 'Hajra', password: 'password', role: 'participant', token: 'part_token_5' }
+  // Judges
+  { userID: 'J001', username: 'judge1', password: 'Judge1@BB#2026', role: 'judge', token: 'judge_token_01' },
+  { userID: 'J002', username: 'judge2', password: 'Judge2@BB#2026', role: 'judge', token: 'judge_token_02' },
+
+  // External Teams
+  { userID: 'EXT01', username: 'robbery_united', password: 'Robbery#9661', role: 'participant', token: 'token_ext_01' },
+  { userID: 'EXT02', username: 'alpha_nmit', password: 'Alpha#8147', role: 'participant', token: 'token_ext_02' },
+  { userID: 'EXT03', username: 'innovate', password: 'Inno#8816', role: 'participant', token: 'token_ext_03' },
+  { userID: 'EXT04', username: 'stratagem', password: 'Strat#8796', role: 'participant', token: 'token_ext_04' },
+  { userID: 'EXT05', username: 'quite_catalyst', password: 'Quite#9178', role: 'participant', token: 'token_ext_05' },
+  { userID: 'EXT06', username: 'team_alpha', password: 'Alpha#9137', role: 'participant', token: 'token_ext_06' },
+  { userID: 'EXT07', username: 'weconsult', password: 'WeCon#7875', role: 'participant', token: 'token_ext_07' },
+  { userID: 'EXT08', username: 'case_champions', password: 'Champ#9820', role: 'participant', token: 'token_ext_08' },
+
+  // Internal Teams
+  { userID: 'INT01', username: 'the_strategists', password: 'Strat#9163', role: 'participant', token: 'token_int_01' },
+  { userID: 'INT02', username: 'iit_4', password: 'IIT4#9181', role: 'participant', token: 'token_int_02' },
+  { userID: 'INT03', username: 'ch26bt018', password: 'Vedant#9198', role: 'participant', token: 'token_int_03' },
+  { userID: 'INT04', username: 'aaradhy_rai', password: 'Aaradhy#9244', role: 'participant', token: 'token_int_04' }
 ];
 
 const seedDB = async () => {

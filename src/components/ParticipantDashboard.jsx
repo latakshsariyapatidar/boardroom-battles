@@ -6,7 +6,25 @@ import { apiCall, subscribeLiveChanges } from '../services/api';
 function ParticipantDashboard({ token, onLogout, setIsLoading }) {
   const [statement, setStatement] = useState(null);
   const [history, setHistory] = useState(JSON.parse(localStorage.getItem('voteHistory') || '[]'));
+
+  // --- Active Neutral Strategy: 1 Neutral Vote Per Round ---
   const [neutralUsedByRound, setNeutralUsedByRound] = useState(JSON.parse(localStorage.getItem('neutralUsedByRound') || '{}'));
+  const currentStatementID = statement?.statementID;
+  const isNeutralUsedCurrent = Boolean(currentStatementID && neutralUsedByRound[currentStatementID]);
+
+  /*
+  // --- ALTERNATIVE FEATURE: 1 NEUTRAL VOTE IN ENTIRE SESSION (Commented out as requested) ---
+  // To switch to 1 neutral vote allowed in the ENTIRE competition session (across all statements):
+  // 1. Comment out `neutralUsedByRound` and `isNeutralUsedCurrent` above.
+  // 2. Uncomment the lines below:
+  // const [sessionNeutralUsed, setSessionNeutralUsed] = useState(
+  //   localStorage.getItem('sessionNeutralUsed') === 'true' ||
+  //   history.some(entry => entry.vote === 'neutral')
+  // );
+  // const isNeutralUsedCurrent = sessionNeutralUsed;
+  // -------------------------------------------------------------------------------------------
+  */
+
   const [voteCounts, setVoteCounts] = useState(JSON.parse(localStorage.getItem('voteCounts') || '{}'));
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
@@ -15,9 +33,6 @@ function ParticipantDashboard({ token, onLogout, setIsLoading }) {
   const [voteChoice, setVoteChoice] = useState('');
   const [isChangingVote, setIsChangingVote] = useState(false);
   const [showInstructions, setShowInstructions] = useState(true);
-
-  const currentStatementID = statement?.statementID;
-  const isNeutralUsedCurrent = Boolean(currentStatementID && neutralUsedByRound[currentStatementID]);
 
   const fetchStatement = async (silent = false) => {
     if (!silent) setIsLoading({ active: true, message: 'Loading Statement' });
@@ -114,6 +129,10 @@ function ParticipantDashboard({ token, onLogout, setIsLoading }) {
     }
     if (isNeutralUsedCurrent) {
       setError('You have already used your neutral vote for this round!');
+      /*
+      // --- ALTERNATIVE: 1 Neutral in entire session error message (Commented out) ---
+      // setError('You have already used your 1 neutral vote for the entire competition session!');
+      */
       return;
     }
     const statementID = statement.statementID;
@@ -132,9 +151,20 @@ function ParticipantDashboard({ token, onLogout, setIsLoading }) {
       const data = await apiCall({ action: 'vote', token, statementID: statement.statementID, vote: 'neutral' });
       if (data && (data.success !== false)) {
         const statementID = statement.statementID;
+        
+        // Active Strategy: 1 Neutral Per Round
         const newNeutralByRound = { ...neutralUsedByRound, [statementID]: true };
         setNeutralUsedByRound(newNeutralByRound);
         localStorage.setItem('neutralUsedByRound', JSON.stringify(newNeutralByRound));
+
+        /*
+        // --- ALTERNATIVE FEATURE: 1 NEUTRAL IN ENTIRE SESSION (Commented out as requested) ---
+        // Uncomment the 2 lines below when switching to 1 neutral for the entire session:
+        // localStorage.setItem('sessionNeutralUsed', 'true');
+        // setSessionNeutralUsed(true);
+        // --------------------------------------------------------------------------------------
+        */
+
         setSuccess('Neutral vote submitted successfully');
         setError(null);
         const newHistory = history.filter(entry => entry.statementID !== statementID);
@@ -214,6 +244,10 @@ function ParticipantDashboard({ token, onLogout, setIsLoading }) {
                 <div className="bg-white/80 p-2.5 rounded-lg border border-orange-100">
                   <p className="font-bold text-orange-900 mb-0.5">Neutral Stance</p>
                   <p className="text-slate-600">Can be used <strong>once per round</strong>. Earns <strong>0 points</strong> (no penalty / no negative deduction).</p>
+                  {/* 
+                  // To switch rule description to 1 neutral in entire session:
+                  // <p className="text-slate-600">Can be used <strong>only once in the entire competition session</strong>. Earns <strong>0 points</strong>.</p>
+                  */}
                 </div>
                 <div className="bg-white/80 p-2.5 rounded-lg border border-orange-100">
                   <p className="font-bold text-orange-900 mb-0.5">Instant Motion Sync</p>
@@ -429,6 +463,10 @@ function ParticipantDashboard({ token, onLogout, setIsLoading }) {
           <div className="pt-3 border-t border-slate-100 text-xs text-slate-500 space-y-1">
             <p className="font-bold text-slate-700">Round Stats</p>
             <p>• Round Neutral: <strong className={isNeutralUsedCurrent ? 'text-red-600' : 'text-green-600'}>{isNeutralUsedCurrent ? 'USED (0 left this round)' : 'AVAILABLE (1 left this round)'}</strong></p>
+            {/*
+            // To switch to session-wide neutral stat display:
+            // <p>• Session Neutral: <strong className={isNeutralUsedCurrent ? 'text-red-600' : 'text-green-600'}>{isNeutralUsedCurrent ? 'USED (0 left in session)' : 'AVAILABLE (1 left in session)'}</strong></p>
+            */}
           </div>
         </div>
       </div>
